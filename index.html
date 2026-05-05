@@ -516,7 +516,7 @@
     let allPwVisible   = false;
     let isSharedView   = false;
     let isCloudShare   = false;
-    let currentBinId   = null;  // JSONBin bin id
+    let currentGistId  = null;  // GitHub Gist id
     let pollTimer      = null;
 
     // ─── 保存分享记录到 localStorage ───────────────────────
@@ -575,7 +575,7 @@
         const result = await resp.json();
         if (result.metadata && result.metadata.id) {
           // 保存分享记录
-          saveShareRecord(result.metadata.id, accounts.length);
+          saveShareRecord(result.id, accounts.length);
           return { success: true, binId: result.metadata.id };
         }
         throw new Error('创建失败');
@@ -585,65 +585,67 @@
       }
     }
 
-    // ─── 读取云端数据（优化：减少重试，加快速度）───────────
+    // ─── 读取云端数据（GitHub Gist）───────────────────────
     async function readCloudData(binId) {
-      const retries = 2; // 减少重试次数
-      let lastError = null;
-      
-      for (let i = 0; i < retries; i++) {
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
-          
-          const resp = await fetch(JSONBIN_API + '/b/' + binId + '/latest?' + Date.now(), {
-            method: 'GET',
-            headers: { 'X-Master-Key': JSONBIN_KEY },
-            signal: controller.signal
-          });
-          
-          clearTimeout(timeoutId);
-          
-          if (!resp.ok) {
-            console.error('HTTP error:', resp.status);
-            lastError = new Error('HTTP ' + resp.status);
-            if (i < retries - 1) await new Promise(r => setTimeout(r, 500)); // 等待0.5秒后重试
-            continue;
-          }
-          
-          const result = await resp.json();
-          // JSONBin 返回格式：{ record: {...} }
-          if (result.record) return result.record;
-          // 也可能直接返回数据
-          if (result.accounts) return result;
-          // 可能是旧格式
-          if (result.data) return result.data;
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        
+        const resp = await fetch(GIST_API + '/' + binId + '?' + Date.now(), {
+          method: 'GET',
+          headers: { 'Authorization': 'token ' + GIST_TOKEN },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!resp.ok) {
+          console.error('HTTP error:', resp.status);
           return null;
-        } catch (e) {
-          console.error('readCloudData error:', e);
-          lastError = e;
-          if (i < retries - 1) await new Promise(r => setTimeout(r, 500)); // 等待0.5秒后重试
         }
+        
+        const result = await resp.json();
+        if (result.files && result.files['data.json']) {
+          const content = result.files['data.json'].content;
+          return JSON.parse(content);
+        }
+        return null;
+      } catch (e) {
+        console.error('readCloudData error:', e);
+        return null;
       }
-      console.error('readCloudData failed after retries:', lastError);
-      return null;
     }
 
-    // ─── 更新云端 usedAccounts ─────────────────────────────
+    // ─── 更新云端 usedAccounts（GitHub Gist）────────────────
     async function updateCloudUsed() {
-      if (!currentBinId) return;
-      const body = JSON.stringify({
-        accounts: accounts,
-        usedAccounts: usedAccounts,
-        createdAt: Date.now()
-      });
+      if (!currentGistId) return;
       try {
-        await fetch(JSONBIN_API + '/b/' + currentBinId, {
-          method: 'PUT',
+        // 先读取当前 Gist 内容
+        const resp = await fetch(GIST_API + '/' + currentGistId, {
+          headers: { 'Authorization': 'token ' + GIST_TOKEN }
+        });
+        const gist = await resp.json();
+        const oldContent = JSON.parse(gist.files['data.json'].content);
+        
+        // 合并 usedAccounts
+        const merged = {
+          accounts: accounts.length > 0 ? accounts : oldContent.accounts,
+          usedAccounts: { ...oldContent.usedAccounts, ...usedAccounts },
+          createdAt: oldContent.createdAt
+        };
+        
+        // 更新 Gist
+        await fetch(GIST_API + '/' + currentGistId, {
+          method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
-            'X-Master-Key': JSONBIN_KEY
+            'Authorization': 'token ' + GIST_TOKEN
           },
-          body: body
+          body: JSON.stringify({
+            files: {
+              'data.json': { content: JSON.stringify(merged) }
+            }
+          })
         });
       } catch (e) {
         console.error('updateCloudUsed error:', e);
@@ -660,9 +662,9 @@
 
     // ─── 手动刷新同步 ───────────────────────────────────────
     async function manualRefresh() {
-      if (!currentBinId) return;
+      if (!currentGistId) return;
       showToast('正在刷新...');
-      const data = await readCloudData(currentBinId);
+      const data = await readCloudData(currentGistId);
       if (data && data.usedAccounts) {
         const oldCount = Object.keys(usedAccounts).filter(k => usedAccounts[k]).length;
         usedAccounts = { ...usedAccounts, ...data.usedAccounts };
@@ -694,7 +696,7 @@
         // 检查是否为云端分享链接（格式：jb_<binId>）
         if (hashContent.startsWith('jb_')) {
           const binId = hashContent.substring(3);
-          currentBinId = binId;
+          currentGistId = binId;
           isCloudShare = true;
           isSharedView = true;
 
@@ -783,7 +785,7 @@
             const savedShareId = localStorage.getItem('account_tool_shareId');
             if (savedShareId) {
               document.getElementById('btnMyShare').classList.add('active');
-              currentBinId = savedShareId;
+              currentGistId = savedShareId;
               startPolling();
             }
             // 显示分享记录按钮（如果有记录）
@@ -893,15 +895,15 @@
       (async () => {
         const cloudResult = await createCloudShare();
         if (cloudResult.success) {
-          currentBinId = cloudResult.binId;
+          currentGistId = cloudResult.binId;
           isCloudShare = true;
           isSharedView = false;
 
-          localStorage.setItem('account_tool_shareId', currentBinId);
+          localStorage.setItem('account_tool_shareId', currentGistId);
           document.getElementById('btnMyShare').classList.add('active');
 
           // 更新链接显示为云端版本
-          const cloudUrl = window.location.origin + window.location.pathname + '#jb_' + currentBinId;
+          const cloudUrl = window.location.origin + window.location.pathname + '#jb_' + currentGistId;
           document.getElementById('shareLinkInput').value = cloudUrl;
           document.getElementById('shareLinkCopy').value = cloudUrl;
 
@@ -948,7 +950,7 @@
 
       // 如果当前没有轮询，开始轮询
       if (!pollTimer && shareId) {
-        currentBinId = shareId;
+        currentGistId = shareId;
         startPolling();
         showToast('已开始监听分享状态');
       }
@@ -1078,7 +1080,7 @@
         usedAccounts[accountIdx] = true;
         saveToLocal();
         // 如果是在云端分享模式下，同步到云端
-        if (isCloudShare || (isSharedView && currentBinId)) {
+        if (isCloudShare || (isSharedView && currentGistId)) {
           updateCloudUsed();
         }
       }
@@ -1110,7 +1112,7 @@
       const fullText = [item.account, item.password, item.email].filter(Boolean).join('----');
       usedAccounts[idx] = true;
       saveToLocal();
-      if (isCloudShare || (isSharedView && currentBinId)) {
+      if (isCloudShare || (isSharedView && currentGistId)) {
         updateCloudUsed();
       }
       copyText(fullText, null, idx, false);
@@ -1128,7 +1130,7 @@
       }
       if (!confirm('确定要重置所有已使用标记吗？')) return;
       usedAccounts = {};
-      if (currentBinId) {
+      if (currentGistId) {
         updateCloudUsed();
       }
       saveToLocal();
@@ -1147,7 +1149,7 @@
       accounts      = [];
       showPasswords = {};
       usedAccounts  = {};
-      currentBinId  = null;
+      currentGistId  = null;
       isCloudShare  = false;
       stopPolling();
       document.getElementById('rawInput').value = '';
@@ -1261,14 +1263,15 @@
       try {
         const resp = await fetch(JSONBIN_API + '/b/' + binId + '/latest', {
           method: 'GET',
-          headers: { 'X-Master-Key': JSONBIN_KEY }
+          headers: { 'Authorization': 'token ' + GIST_TOKEN }
         });
         const result = await resp.json();
         let usedCount = 0;
-        if (result.record && result.record.usedAccounts) {
-          usedCount = Object.keys(result.record.usedAccounts).filter(k => result.record.usedAccounts[k]).length;
-        } else if (result.usedAccounts) {
-          usedCount = Object.keys(result.usedAccounts).filter(k => result.usedAccounts[k]).length;
+        if (result.files && result.files['data.json']) {
+          const data = JSON.parse(result.files['data.json'].content);
+          if (data.usedAccounts) {
+            usedCount = Object.keys(data.usedAccounts).filter(k => data.usedAccounts[k]).length;
+          }
         }
         const statusEl = document.getElementById('recordStatus_' + binId);
         if (statusEl) {
