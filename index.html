@@ -5,11 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>账号分离一键复制工具</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
       font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif;
@@ -19,7 +15,7 @@
     }
 
     .container {
-      max-width: 900px;
+      max-width: 960px;
       margin: 0 auto;
       background: #fff;
       border-radius: 16px;
@@ -36,19 +32,102 @@
       letter-spacing: 1px;
     }
 
-    h1 .icon {
-      margin-right: 8px;
+    /* 分享横幅 */
+    .share-banner {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      border-radius: 12px;
+      padding: 24px 28px;
+      margin-bottom: 24px;
+      display: none;
     }
 
-    /* 文本输入区 */
-    .textarea-wrap {
-      position: relative;
-      margin-bottom: 30px;
+    .share-banner.active {
+      display: block;
     }
+
+    .share-banner h3 {
+      font-size: 16px;
+      margin-bottom: 6px;
+    }
+
+    .share-banner p {
+      font-size: 13px;
+      opacity: 0.85;
+      margin-bottom: 14px;
+    }
+
+    .share-banner input {
+      width: calc(100% - 110px);
+      padding: 10px 14px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #333;
+      background: rgba(255,255,255,0.95);
+    }
+
+    .share-banner button {
+      width: 96px;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      background: #fff;
+      color: #667eea;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      margin-left: 8px;
+    }
+
+    .share-banner button:hover { background: #f0f0f0; }
+
+    /* 查看模式横幅 */
+    .view-mode-banner {
+      background: #fff3cd;
+      border: 1px solid #ffeeba;
+      color: #856404;
+      border-radius: 10px;
+      padding: 14px 20px;
+      font-size: 13px;
+      margin-bottom: 20px;
+      display: none;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .view-mode-banner.active { display: flex; }
+
+    .view-mode-banner span { flex: 1; }
+
+    /* 分隔符设置 */
+    .sep-setting {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .sep-setting label { font-size: 13px; color: #666; }
+
+    .sep-setting input {
+      border: 1px solid #d9d9d9;
+      border-radius: 5px;
+      padding: 6px 12px;
+      font-size: 13px;
+      width: 130px;
+      outline: none;
+    }
+
+    .sep-setting input:focus { border-color: #4caf50; }
+
+    /* 文本输入区 */
+    .textarea-wrap { position: relative; margin-bottom: 20px; }
 
     textarea#rawInput {
       width: 100%;
-      min-height: 150px;
+      min-height: 130px;
       border: 1px solid #d9d9d9;
       border-radius: 8px;
       padding: 14px 16px;
@@ -61,9 +140,7 @@
       line-height: 1.8;
     }
 
-    textarea#rawInput:focus {
-      border-color: #4caf50;
-    }
+    textarea#rawInput:focus { border-color: #4caf50; }
 
     .parse-btn-wrap {
       margin-top: 10px;
@@ -78,79 +155,75 @@
       color: #fff;
       border: none;
       border-radius: 6px;
-      padding: 8px 22px;
+      padding: 9px 24px;
       font-size: 14px;
       cursor: pointer;
       font-weight: 600;
       transition: background 0.2s;
     }
 
-    .btn-parse:hover {
-      background: #43a047;
+    .btn-parse:hover { background: #43a047; }
+
+    .btn-share {
+      background: #667eea;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 9px 24px;
+      font-size: 14px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.2s;
+      display: none;
     }
+
+    .btn-share.active { display: inline-block; }
+
+    .btn-share:hover { background: #5a6fd6; }
 
     .btn-clear {
       background: #f5f5f5;
       color: #666;
       border: 1px solid #ddd;
       border-radius: 6px;
-      padding: 8px 18px;
+      padding: 9px 20px;
       font-size: 14px;
       cursor: pointer;
       transition: background 0.2s;
     }
 
-    .btn-clear:hover {
-      background: #e8e8e8;
-    }
+    .btn-clear:hover { background: #e8e8e8; }
 
-    .hint {
-      font-size: 12px;
-      color: #aaa;
-      margin-left: 4px;
-    }
+    .hint { font-size: 12px; color: #aaa; margin-left: 4px; }
 
-    /* 分隔符设置 */
-    .sep-setting {
+    /* 统计栏 */
+    .stats-bar {
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 12px;
-      flex-wrap: wrap;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      padding: 0 2px;
     }
 
-    .sep-setting label {
-      font-size: 13px;
-      color: #666;
+    .stats-bar span { font-size: 13px; color: #888; }
+
+    .btn-show-all-pw {
+      font-size: 12px;
+      color: #4caf50;
+      cursor: pointer;
+      background: none;
+      border: none;
+      text-decoration: underline;
     }
 
-    .sep-setting input {
-      border: 1px solid #d9d9d9;
-      border-radius: 5px;
-      padding: 4px 10px;
-      font-size: 13px;
-      width: 120px;
-      outline: none;
-    }
+    .btn-show-all-pw:hover { color: #2e7d32; }
 
-    .sep-setting input:focus {
-      border-color: #4caf50;
-    }
+    /* 表格 */
+    .table-wrap { overflow-x: auto; }
 
-    /* 表格区域 */
-    .table-wrap {
-      overflow-x: auto;
-    }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 14px;
-    }
-
-    thead tr {
-      background: #f7f7f7;
-    }
+    thead tr { background: #f7f7f7; }
 
     thead th {
       text-align: left;
@@ -158,6 +231,7 @@
       font-weight: 600;
       color: #333;
       border-bottom: 2px solid #ececec;
+      white-space: nowrap;
     }
 
     tbody tr {
@@ -165,9 +239,7 @@
       transition: background 0.15s;
     }
 
-    tbody tr:hover {
-      background: #f9fdf9;
-    }
+    tbody tr:hover { background: #f9fdf9; }
 
     tbody td {
       padding: 14px 16px;
@@ -182,40 +254,17 @@
       width: 50px;
     }
 
-    td.account-cell {
-      min-width: 200px;
-    }
-
-    td.password-cell {
-      min-width: 140px;
-    }
-
-    td.email-cell {
-      min-width: 200px;
-    }
-
-    td.action-cell {
-      min-width: 100px;
-      text-align: right;
-    }
-
     .cell-inner {
       display: flex;
       align-items: center;
       gap: 8px;
     }
 
-    .cell-value {
-      flex: 1;
-      word-break: break-all;
-    }
+    .cell-value { flex: 1; word-break: break-all; }
 
-    .masked {
-      letter-spacing: 2px;
-      color: #999;
-    }
+    .masked { letter-spacing: 2px; color: #999; }
 
-    /* 小复制按钮 */
+    /* 小按钮 */
     .btn-copy-small {
       background: #fff;
       color: #4caf50;
@@ -229,24 +278,16 @@
       font-weight: 500;
     }
 
-    .btn-copy-small:hover {
-      background: #4caf50;
-      color: #fff;
-    }
+    .btn-copy-small:hover { background: #4caf50; color: #fff; }
 
-    .btn-copy-small.copied {
-      background: #4caf50;
-      color: #fff;
-      border-color: #4caf50;
-    }
+    .btn-copy-small.copied { background: #4caf50; color: #fff; }
 
-    /* 全复制按钮 */
     .btn-copy-all {
       background: #4caf50;
       color: #fff;
       border: none;
       border-radius: 6px;
-      padding: 6px 18px;
+      padding: 7px 20px;
       font-size: 13px;
       cursor: pointer;
       font-weight: 600;
@@ -254,15 +295,10 @@
       transition: background 0.15s;
     }
 
-    .btn-copy-all:hover {
-      background: #43a047;
-    }
+    .btn-copy-all:hover { background: #43a047; }
 
-    .btn-copy-all.copied {
-      background: #388e3c;
-    }
+    .btn-copy-all.copied { background: #388e3c; }
 
-    /* 显示/隐藏密码 */
     .toggle-pw {
       cursor: pointer;
       font-size: 13px;
@@ -270,9 +306,7 @@
       user-select: none;
     }
 
-    .toggle-pw:hover {
-      color: #4caf50;
-    }
+    .toggle-pw:hover { color: #4caf50; }
 
     /* 空状态 */
     .empty-tip {
@@ -282,7 +316,33 @@
       font-size: 15px;
     }
 
-    /* toast 提示 */
+    /* 分享链接成功提示 */
+    .share-success {
+      background: #d4edda;
+      border: 1px solid #c3e6cb;
+      color: #155724;
+      border-radius: 10px;
+      padding: 14px 20px;
+      font-size: 13px;
+      margin-bottom: 16px;
+      display: none;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .share-success.active { display: flex; }
+
+    .share-success input {
+      flex: 1;
+      padding: 7px 12px;
+      border: 1px solid #b8dac5;
+      border-radius: 6px;
+      font-size: 13px;
+      background: #fff;
+      color: #333;
+    }
+
+    /* toast */
     #toast {
       position: fixed;
       bottom: 40px;
@@ -299,12 +359,9 @@
       z-index: 9999;
     }
 
-    #toast.show {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
-    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-    /* 数据共享说明 */
+    /* 说明 */
     .share-info {
       margin-top: 28px;
       padding: 14px 18px;
@@ -315,54 +372,45 @@
       color: #555;
     }
 
-    .share-info strong {
-      color: #2e7d32;
-    }
-
-    /* 统计栏 */
-    .stats-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 14px;
-      padding: 0 2px;
-    }
-
-    .stats-bar span {
-      font-size: 13px;
-      color: #888;
-    }
-
-    .btn-show-all-pw {
-      font-size: 12px;
-      color: #4caf50;
-      cursor: pointer;
-      background: none;
-      border: none;
-      text-decoration: underline;
-    }
-
-    .btn-show-all-pw:hover {
-      color: #2e7d32;
-    }
+    .share-info strong { color: #2e7d32; }
 
     @media (max-width: 600px) {
-      .container {
-        padding: 20px 12px 30px;
-      }
+      .container { padding: 20px 12px 30px; }
       h1 { font-size: 20px; }
       thead th, tbody td { padding: 10px 8px; font-size: 12px; }
+      .share-banner input { width: 100%; margin-bottom: 8px; }
+      .share-banner button { width: 100%; margin-left: 0; }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1><span class="icon">🔐</span>账号分离一键复制工具</h1>
+    <h1>🔐 账号分离一键复制工具</h1>
+
+    <!-- 查看模式横幅 -->
+    <div class="view-mode-banner" id="viewModeBanner">
+      <span>📋 当前为共享链接查看模式，复制功能正常可用</span>
+    </div>
+
+    <!-- 分享横幅 -->
+    <div class="share-banner" id="shareBanner">
+      <h3>🔗 生成可分享链接</h3>
+      <p>点击下方按钮，将账号数据编码为链接。分享给任何人，他们打开即可查看并复制</p>
+      <input type="text" id="shareLinkInput" readonly placeholder="点击"生成分享链接"按钮生成..." />
+      <button onclick="copyShareLink()">复制链接</button>
+    </div>
+
+    <!-- 分享成功提示 -->
+    <div class="share-success" id="shareSuccess">
+      <span>✅ 分享链接已复制到剪贴板，可直接发送给朋友！</span>
+      <input type="text" id="shareLinkCopy" readonly />
+      <button onclick="copyShareLink()">再次复制</button>
+    </div>
 
     <!-- 分隔符设置 -->
     <div class="sep-setting">
-      <label>分隔符（支持多个，用竖线隔开）：</label>
-      <input id="sepInput" value="----" placeholder="如 ---- 或 ---- | --- | :" />
+      <label>分隔符（多个用竖线隔开）：</label>
+      <input id="sepInput" value="----" placeholder="如 ---- | --- | :" />
       <span class="hint">格式：账号[分隔符]密码[分隔符]邮箱</span>
     </div>
 
@@ -371,8 +419,9 @@
       <textarea id="rawInput" placeholder="请粘贴账号数据，每行一条，格式如：&#10;i3mk1f7@llt.lingeringp.com----1FLZzqyJRu----bs0gub8cu3@126.com&#10;kskg4h3@llt.lingeringp.com----aPI3MWOlkq----jfp983xiz0@126.com"></textarea>
       <div class="parse-btn-wrap">
         <button class="btn-parse" onclick="parseData()">解析数据</button>
+        <button class="btn-share" id="btnShare" onclick="generateShareLink()">🔗 生成分享链接</button>
         <button class="btn-clear" onclick="clearAll()">清空</button>
-        <span class="hint">解析后数据将自动保存，刷新页面后依然存在</span>
+        <span class="hint">解析后可生成分享链接，其他用户打开即可复制</span>
       </div>
     </div>
 
@@ -402,34 +451,61 @@
       </table>
     </div>
 
-    <!-- 共享说明 -->
+    <!-- 说明 -->
     <div class="share-info">
-      💡 <strong>数据共享说明：</strong>数据保存在浏览器本地存储（localStorage）中，同一设备/浏览器刷新后可保留数据。如需多人共享，请将本 HTML 文件部署到服务器，或直接将解析后的数据通过文本框内容复制分享给他人。
+      💡 <strong>使用方法：</strong>粘贴账号数据 → 解析 → 点击「<strong>生成分享链接</strong>」→ 将链接分享给朋友。朋友打开后无需登录即可查看所有账号密码并一键复制。<strong>数据通过 URL 编码传递，不经过任何服务器，安全可靠。</strong>
     </div>
   </div>
 
   <div id="toast">已复制！</div>
 
   <script>
-    // ─── 全局状态 ───────────────────────────────────────────────
-    let accounts = [];          // [{account, password, email}]
-    let showPasswords = {};     // 记录每行密码是否显示
+    let accounts = [];
+    let showPasswords = {};
     let allPwVisible = false;
+    let isSharedView = false;
 
-    // ─── 初始化：从 localStorage 恢复数据 ────────────────────────
+    // ─── 初始化：检查URL中是否有分享数据 ──────────────────────
     window.addEventListener('DOMContentLoaded', () => {
-      const saved = localStorage.getItem('account_tool_data');
-      if (saved) {
+      // 从URL hash加载分享数据
+      const hash = window.location.hash;
+      if (hash && hash.length > 1) {
         try {
-          accounts = JSON.parse(saved);
-          const savedRaw = localStorage.getItem('account_tool_raw');
-          if (savedRaw) document.getElementById('rawInput').value = savedRaw;
+          const encoded = decodeURIComponent(hash.substring(1));
+          const jsonStr = atob(encoded);
+          accounts = JSON.parse(jsonStr);
+          isSharedView = true;
+          // 显示查看模式
+          document.getElementById('viewModeBanner').classList.add('active');
+          document.getElementById('shareBanner').style.display = 'none';
+          // 清空输入框（查看模式下不需要输入框）
+          document.getElementById('rawInput').style.display = 'none';
+          document.querySelector('.sep-setting').style.display = 'none';
+          document.querySelector('.hint').style.display = 'none';
+          document.querySelector('.btn-parse').style.display = 'none';
+          document.querySelector('.btn-clear').style.display = 'none';
           renderTable();
-        } catch(e) {}
+          showToast('已加载分享数据，共 ' + accounts.length + ' 条账号');
+        } catch (e) {
+          console.error('Failed to load shared data:', e);
+        }
+      }
+
+      // 尝试从localStorage恢复
+      if (!isSharedView) {
+        const saved = localStorage.getItem('account_tool_data');
+        if (saved) {
+          try {
+            accounts = JSON.parse(saved);
+            const savedRaw = localStorage.getItem('account_tool_raw');
+            if (savedRaw) document.getElementById('rawInput').value = savedRaw;
+            renderTable();
+          } catch(e) {}
+        }
       }
     });
 
-    // ─── 解析数据 ────────────────────────────────────────────────
+    // ─── 解析数据 ────────────────────────────────────────────
     function parseData() {
       const raw = document.getElementById('rawInput').value.trim();
       if (!raw) {
@@ -438,7 +514,6 @@
       }
 
       const sepRaw = document.getElementById('sepInput').value || '----';
-      // 支持多个分隔符（用 | 分隔）
       const seps = sepRaw.split('|').map(s => s.trim()).filter(Boolean);
 
       const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
@@ -458,7 +533,6 @@
                 rest.substring(idx2 + sep.length).trim()
               ];
             } else {
-              // 只有两段
               parts = [
                 line.substring(0, idx1).trim(),
                 rest.trim(),
@@ -471,7 +545,6 @@
         if (parts) {
           parsed.push({ account: parts[0], password: parts[1], email: parts[2] });
         } else {
-          // 尝试常见分隔符自动识别
           const auto = autoSplit(line);
           if (auto) parsed.push(auto);
         }
@@ -486,7 +559,8 @@
       showPasswords = {};
       saveToLocal();
       renderTable();
-      showToast(`成功解析 ${parsed.length} 条账号`);
+      document.getElementById('btnShare').classList.add('active');
+      showToast('成功解析 ' + parsed.length + ' 条账号，可生成分享链接！');
     }
 
     function autoSplit(line) {
@@ -495,24 +569,56 @@
         if (line.includes(d)) {
           const parts = line.split(d).map(s => s.trim());
           if (parts.length >= 2) {
-            return {
-              account: parts[0],
-              password: parts[1],
-              email: parts[2] || ''
-            };
+            return { account: parts[0], password: parts[1], email: parts[2] || '' };
           }
         }
       }
       return null;
     }
 
-    // ─── 渲染表格 ────────────────────────────────────────────────
+    // ─── 生成分享链接 ───────────────────────────────────────
+    function generateShareLink() {
+      if (accounts.length === 0) {
+        showToast('请先解析账号数据');
+        return;
+      }
+
+      const jsonStr = JSON.stringify(accounts);
+      const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+      const shareUrl = window.location.origin + window.location.pathname + '#' + encoded;
+
+      document.getElementById('shareLinkInput').value = shareUrl;
+      document.getElementById('shareLinkCopy').value = shareUrl;
+      document.getElementById('shareBanner').classList.add('active');
+      document.getElementById('shareSuccess').classList.add('active');
+
+      copyShareLink();
+    }
+
+    function copyShareLink() {
+      const link = document.getElementById('shareLinkInput').value || document.getElementById('shareLinkCopy').value;
+      if (!link) return;
+      navigator.clipboard.writeText(link).then(() => {
+        showToast('分享链接已复制到剪贴板！');
+      }).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = link;
+        ta.style.cssText = 'position:fixed;opacity:0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('分享链接已复制到剪贴板！');
+      });
+    }
+
+    // ─── 渲染表格 ───────────────────────────────────────────
     function renderTable() {
       const tbody = document.getElementById('tableBody');
-      document.getElementById('statsText').textContent = `共 ${accounts.length} 条账号`;
+      document.getElementById('statsText').textContent = '共 ' + accounts.length + ' 条账号';
 
       if (accounts.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="empty-tip">暂无数据，请在上方粘贴账号信息并点击「解析数据」</td></tr>`;
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-tip">暂无数据，请在上方粘贴账号信息并点击「解析数据」</td></tr>';
         return;
       }
 
@@ -521,32 +627,31 @@
         const pwDisplay = visible ? escHtml(item.password) : maskPassword(item.password);
         const eyeIcon = visible ? '🙈' : '👁';
 
-        return `
-          <tr>
-            <td class="num">${i + 1}</td>
-            <td class="account-cell">
-              <div class="cell-inner">
-                <span class="cell-value">${escHtml(item.account)}</span>
-                <button class="btn-copy-small" onclick="copyText('${escAttr(item.account)}', this)">复制</button>
-              </div>
-            </td>
-            <td class="password-cell">
-              <div class="cell-inner">
-                <span class="cell-value ${visible ? '' : 'masked'}" id="pw-${i}">${pwDisplay}</span>
-                <span class="toggle-pw" onclick="togglePassword(${i})" title="显示/隐藏密码">${eyeIcon}</span>
-                <button class="btn-copy-small" onclick="copyText('${escAttr(item.password)}', this)">复制</button>
-              </div>
-            </td>
-            <td class="email-cell">
-              <div class="cell-inner">
-                <span class="cell-value">${escHtml(item.email)}</span>
-                ${item.email ? `<button class="btn-copy-small" onclick="copyText('${escAttr(item.email)}', this)">复制</button>` : ''}
-              </div>
-            </td>
-            <td class="action-cell">
-              <button class="btn-copy-all" onclick="copyAll(${i}, this)">全复制</button>
-            </td>
-          </tr>`;
+        return '<tr>' +
+          '<td class="num">' + (i + 1) + '</td>' +
+          '<td>' +
+            '<div class="cell-inner">' +
+              '<span class="cell-value">' + escHtml(item.account) + '</span>' +
+              '<button class="btn-copy-small" onclick="copyText(\'' + escAttr(item.account) + '\', this)">复制</button>' +
+            '</div>' +
+          '</td>' +
+          '<td>' +
+            '<div class="cell-inner">' +
+              '<span class="cell-value ' + (visible ? '' : 'masked') + '" id="pw-' + i + '">' + pwDisplay + '</span>' +
+              '<span class="toggle-pw" onclick="togglePassword(' + i + ')" title="显示/隐藏密码">' + eyeIcon + '</span>' +
+              '<button class="btn-copy-small" onclick="copyText(\'' + escAttr(item.password) + '\', this)">复制</button>' +
+            '</div>' +
+          '</td>' +
+          '<td>' +
+            '<div class="cell-inner">' +
+              '<span class="cell-value">' + escHtml(item.email) + '</span>' +
+              (item.email ? '<button class="btn-copy-small" onclick="copyText(\'' + escAttr(item.email) + '\', this)">复制</button>' : '') +
+            '</div>' +
+          '</td>' +
+          '<td style="text-align:right">' +
+            '<button class="btn-copy-all" onclick="copyAll(' + i + ', this)">全复制</button>' +
+          '</td>' +
+        '</tr>';
       }).join('');
     }
 
@@ -566,10 +671,10 @@
       renderTable();
     }
 
-    // ─── 复制功能 ────────────────────────────────────────────────
+    // ─── 复制 ───────────────────────────────────────────────
     function copyText(text, btn) {
       navigator.clipboard.writeText(text).then(() => {
-        showToast('已复制: ' + (text.length > 30 ? text.substring(0, 30) + '…' : text));
+        showToast('已复制: ' + (text.length > 30 ? text.substring(0, 30) + '...' : text));
         if (btn) {
           const orig = btn.textContent;
           btn.textContent = '已复制';
@@ -580,11 +685,9 @@
           }, 1500);
         }
       }).catch(() => {
-        // 降级方案
         const ta = document.createElement('textarea');
         ta.value = text;
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
+        ta.style.cssText = 'position:fixed;opacity:0';
         document.body.appendChild(ta);
         ta.select();
         document.execCommand('copy');
@@ -608,7 +711,7 @@
       }
     }
 
-    // ─── 清空 ───────────────────────────────────────────────────
+    // ─── 清空 ───────────────────────────────────────────────
     function clearAll() {
       if (accounts.length === 0 && !document.getElementById('rawInput').value) {
         showToast('已经是空的了');
@@ -618,19 +721,24 @@
       accounts = [];
       showPasswords = {};
       document.getElementById('rawInput').value = '';
+      document.getElementById('btnShare').classList.remove('active');
+      document.getElementById('shareBanner').classList.remove('active');
+      document.getElementById('shareSuccess').classList.remove('active');
       localStorage.removeItem('account_tool_data');
       localStorage.removeItem('account_tool_raw');
       renderTable();
       showToast('已清空');
     }
 
-    // ─── 本地存储 ────────────────────────────────────────────────
+    // ─── 本地存储 ────────────────────────────────────────────
     function saveToLocal() {
-      localStorage.setItem('account_tool_data', JSON.stringify(accounts));
-      localStorage.setItem('account_tool_raw', document.getElementById('rawInput').value);
+      if (!isSharedView) {
+        localStorage.setItem('account_tool_data', JSON.stringify(accounts));
+        localStorage.setItem('account_tool_raw', document.getElementById('rawInput').value);
+      }
     }
 
-    // ─── 工具函数 ────────────────────────────────────────────────
+    // ─── 工具 ───────────────────────────────────────────────
     function escHtml(str) {
       if (!str) return '';
       return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -641,7 +749,6 @@
       return str.replace(/'/g, "\\'").replace(/\\/g, '\\\\');
     }
 
-    // ─── Toast 提示 ──────────────────────────────────────────────
     let toastTimer = null;
     function showToast(msg) {
       const el = document.getElementById('toast');
