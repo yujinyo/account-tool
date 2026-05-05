@@ -8,12 +8,12 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f5f5;
+            background: #f0f2f5;
             min-height: 100vh;
             padding: 20px;
         }
         .container {
-            max-width: 800px;
+            max-width: 900px;
             margin: 0 auto;
         }
         
@@ -21,140 +21,160 @@
         .header {
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             color: white;
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
+            padding: 24px;
+            border-radius: 16px 16px 0 0;
+            text-align: center;
         }
-        .header h1 { font-size: 20px; }
-        .header span { font-size: 28px; }
+        .header h1 { font-size: 22px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .header span { font-size: 26px; }
 
-        /* 卡片 */
-        .card {
+        /* 主内容区 */
+        .main-card {
             background: white;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 16px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-        }
-        .card-title {
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 12px;
-            font-weight: 500;
+            border-radius: 0 0 16px 16px;
+            padding: 24px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
         }
         
-        /* 输入区域 */
+        /* 分隔符 */
         .separator-row {
             display: flex;
+            align-items: center;
             gap: 12px;
             margin-bottom: 16px;
-            align-items: center;
         }
         .separator-row label {
             font-size: 14px;
-            color: #333;
+            color: #666;
             white-space: nowrap;
         }
         .separator-row input {
-            flex: 1;
-            padding: 10px 12px;
-            border: 2px solid #e8e8e8;
-            border-radius: 8px;
+            width: 120px;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
             font-size: 14px;
-            outline: none;
         }
-        .separator-row input:focus { border-color: #10b981; }
+        .separator-hint {
+            font-size: 12px;
+            color: #999;
+            margin-left: auto;
+        }
         
+        /* 输入框 */
         textarea {
             width: 100%;
-            min-height: 180px;
-            padding: 14px;
-            border: 2px solid #e8e8e8;
+            min-height: 140px;
+            padding: 16px;
+            border: 1px solid #e0e0e0;
             border-radius: 10px;
-            font-size: 14px;
+            font-size: 13px;
             font-family: 'Consolas', monospace;
             resize: vertical;
             outline: none;
-            line-height: 1.6;
+            line-height: 1.8;
+            color: #666;
         }
         textarea:focus { border-color: #10b981; }
         
-        /* 按钮 */
+        /* 按钮行 */
         .btn-row {
             display: flex;
-            gap: 12px;
+            gap: 10px;
             margin-top: 16px;
+            flex-wrap: wrap;
         }
         .btn {
-            flex: 1;
-            padding: 14px;
+            padding: 12px 20px;
             border: none;
-            border-radius: 10px;
-            font-size: 15px;
-            font-weight: 600;
+            border-radius: 8px;
+            font-size: 14px;
             cursor: pointer;
             transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
         .btn-primary {
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             color: white;
+            flex: 1;
+            justify-content: center;
+            font-weight: 500;
         }
         .btn-primary:hover { opacity: 0.9; }
-        .btn-secondary {
+        .btn-purple {
+            background: #8b5cf6;
+            color: white;
+        }
+        .btn-purple:hover { background: #7c3aed; }
+        .btn-teal {
+            background: #14b8a6;
+            color: white;
+        }
+        .btn-teal:hover { background: #0d9488; }
+        .btn-gray {
             background: #f5f5f5;
             color: #666;
+            border: 1px solid #e0e0e0;
         }
-        .btn-secondary:hover { background: #eee; }
+        .btn-gray:hover { background: #eee; }
         
         /* 统计信息 */
-        .stats {
-            display: flex;
-            gap: 16px;
-            flex-wrap: wrap;
-        }
-        .stat-item {
+        .stats-row {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 8px 16px;
-            background: #f9fafb;
-            border-radius: 8px;
-            font-size: 14px;
+            gap: 16px;
+            margin: 20px 0;
+            padding: 12px 0;
+            border-top: 1px solid #f0f0f0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 13px;
+            color: #666;
         }
-        .stat-item .label { color: #666; }
-        .stat-item .value { font-weight: 600; color: #10b981; }
+        .stats-row .stat { display: flex; align-items: center; gap: 4px; }
+        .stats-row .stat .num { color: #10b981; font-weight: 600; }
+        .stats-row .actions { margin-left: auto; display: flex; gap: 12px; }
+        .stats-row .actions a {
+            color: #10b981;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .stats-row .actions a:hover { text-decoration: underline; }
         
         /* 表格 */
         .table-wrap {
             overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid #f0f0f0;
         }
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 14px;
-        }
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #eee;
+            font-size: 13px;
         }
         th {
             background: #f9fafb;
+            padding: 14px 12px;
+            text-align: left;
             font-weight: 600;
             color: #333;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        td {
+            padding: 14px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            color: #555;
         }
         tr:hover { background: #f9fafb; }
-        .seq { color: #999; width: 50px; }
-        .account { font-family: 'Consolas', monospace; word-break: break-all; }
-        .password { font-family: 'Consolas', monospace; }
-        .password.hidden { color: #ccc; }
-        .email { color: #666; font-size: 13px; word-break: break-all; }
-        .action { width: 100px; }
-        .action button {
-            padding: 6px 12px;
+        .seq { width: 50px; color: #999; }
+        .account-col { font-family: 'Consolas', monospace; }
+        .pwd-col { font-family: 'Consolas', monospace; }
+        .pwd-col.hidden { color: #ccc; }
+        .email-col { color: #666; font-size: 12px; }
+        .op-col { width: 80px; }
+        .op-col button {
+            padding: 6px 14px;
             background: #10b981;
             color: white;
             border: none;
@@ -162,52 +182,104 @@
             font-size: 13px;
             cursor: pointer;
         }
-        .action button:hover { opacity: 0.8; }
-        .used-tag {
+        .op-col button:hover { opacity: 0.8; }
+        .op-col button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .used-badge {
             font-size: 11px;
             padding: 2px 6px;
-            background: #fee;
-            color: #c00;
+            background: #fee2e2;
+            color: #dc2626;
             border-radius: 4px;
-            margin-left: 8px;
-        }
-        .reset-btn {
-            padding: 6px 12px;
-            background: #fee;
-            color: #c00;
-            border: none;
-            border-radius: 6px;
-            font-size: 13px;
-            cursor: pointer;
-            margin-left: 8px;
-        }
-        .reset-btn:hover { background: #fdd; }
-        
-        /* 密码显示/隐藏 */
-        .toggle-pwd {
-            padding: 4px 8px;
-            background: #f0f0f0;
-            border: none;
-            border-radius: 4px;
-            font-size: 12px;
-            cursor: pointer;
+            margin-left: 6px;
         }
         
-        /* 提示 */
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #ccc;
+        }
+        .empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+        .empty-state p { font-size: 14px; color: #999; }
+        
+        /* 底部提示 */
         .tips {
+            margin-top: 20px;
             background: #ecfdf5;
-            border: 1px solid #a7f3d0;
             border-radius: 10px;
-            padding: 16px;
+            padding: 16px 20px;
             font-size: 13px;
             color: #065f46;
             line-height: 1.8;
         }
-        .tips h3 {
+        .tips h4 {
             font-size: 14px;
             margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
+        .tips ul { margin-left: 20px; }
         .tips li { margin-bottom: 4px; }
+        
+        /* 弹窗 */
+        .modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 100;
+        }
+        .modal.show { display: flex; }
+        .modal-box {
+            background: white;
+            border-radius: 16px;
+            padding: 28px;
+            width: 100%;
+            max-width: 480px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-box h3 { margin-bottom: 20px; color: #333; }
+        .modal-box .close-btn {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+        
+        /* 分享链接 */
+        .share-link {
+            display: flex;
+            gap: 10px;
+            margin: 16px 0;
+        }
+        .share-link input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            background: #f9fafb;
+        }
+        .share-link button {
+            padding: 12px 20px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
         
         /* Toast */
         .toast {
@@ -223,106 +295,157 @@
             z-index: 9999;
         }
         
-        .empty { text-align: center; color: #ccc; padding: 40px; font-size: 15px; }
+        .record-item {
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .record-item .info { flex: 1; }
+        .record-item .info .title { font-weight: 500; color: #333; }
+        .record-item .info .meta { font-size: 12px; color: #999; margin-top: 4px; }
+        .record-item .actions { display: flex; gap: 8px; }
+        .record-item .actions button {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .record-item .actions .view-btn { background: #10b981; color: white; }
+        .record-item .actions .del-btn { background: #fee; color: #c00; }
     </style>
 </head>
 <body>
 <div class="container">
     <!-- 标题 -->
     <div class="header">
-        <span>🔐</span>
-        <h1>账号分离一键复制工具</h1>
+        <h1><span>🔐</span> 账号分离一键复制工具</h1>
     </div>
     
-    <!-- 输入区 -->
-    <div class="card">
+    <div class="main-card">
+        <!-- 分隔符 -->
         <div class="separator-row">
-            <label>分隔符设置：</label>
-            <input type="text" id="separator" value="----" placeholder="默认 ----，支持多个分隔符用竖线隔开，如: ----|--">
+            <label>分隔符：</label>
+            <input type="text" id="separator" value="----" placeholder="----">
+            <span class="separator-hint">格式：账号分隔符密码分隔符邮箱，多个用竖线隔开</span>
         </div>
-        <textarea id="inputData" placeholder="粘贴账号数据，每行一条
-
-格式示例：
-账号----密码----邮箱（可选）
-账号----密码
-账号
-
-例如：
-zhangsan@email.com----pass123----主号
-lisi@email.com----pass456"></textarea>
+        
+        <!-- 输入框 -->
+        <textarea id="inputData" placeholder="粘贴账号数据，每行一条，示例：
+13akKf79ilt.lingeringp.com----1FL2zqyJNu----be0qab8cu3@126.com
+kakq4h38ilt.lingeringp.com----aF13MW0lkq----jfp983x1z0@126.com"></textarea>
+        
+        <!-- 按钮行 -->
         <div class="btn-row">
             <button class="btn btn-primary" onclick="parseData()">🔍 解析数据</button>
-            <button class="btn btn-secondary" onclick="clearAll()">🗑️ 清空</button>
+            <button class="btn btn-purple" onclick="showMyShares()">📋 我的分享</button>
+            <button class="btn btn-teal" onclick="shareCurrent()">🔗 分享记录</button>
+            <button class="btn btn-gray" onclick="clearAll()">清空</button>
         </div>
-    </div>
-    
-    <!-- 统计 -->
-    <div class="card">
-        <div class="stats">
-            <div class="stat-item">
-                <span class="label">共</span>
-                <span class="value" id="totalCount">0</span>
-                <span class="label">条账号</span>
+        
+        <!-- 统计 -->
+        <div class="stats-row">
+            <div class="stat">共 <span class="num" id="totalCount">0</span> 条账号</div>
+            <div class="stat" style="margin-left:20px;">
+                <span style="background:#10b981;color:white;padding:2px 8px;border-radius:4px;font-size:12px;">新的</span>
             </div>
-            <div class="stat-item">
-                <span class="label">已使用</span>
-                <span class="value" id="usedCount">0</span>
-                <span class="label">条</span>
-            </div>
-            <div class="stat-item">
-                <button class="reset-btn" onclick="resetAll()">重置已使用</button>
-            </div>
-            <div class="stat-item">
-                <button class="toggle-pwd" onclick="toggleAllPwd()">🔒 显示/隐藏密码</button>
+            <div class="stat">已使用 <span class="num" id="usedCount">0</span> 条</div>
+            <div class="actions">
+                <a onclick="resetMarks()">重置标记</a>
+                <a onclick="togglePwd()">显示/隐藏密码</a>
             </div>
         </div>
-    </div>
-    
-    <!-- 结果表格 -->
-    <div class="card">
-        <div class="card-title">📋 账号列表（点击「复制」获取下一条）</div>
+        
+        <!-- 结果表格 -->
         <div class="table-wrap" id="resultArea">
-            <div class="empty">粘贴数据并点击「解析数据」开始</div>
+            <div class="empty-state">
+                <div class="icon">📋</div>
+                <p>暂无数据</p>
+                <p style="font-size:12px;margin-top:8px;">请在上方粘贴账号信息并点击「解析数据」</p>
+            </div>
+        </div>
+        
+        <!-- 底部提示 -->
+        <div class="tips">
+            <h4>📖 使用方法</h4>
+            <ul>
+                <li>粘贴账号 → 解析 → 点击「分享链接」或「二维码」→ 发送链接/二维码给朋友，他们打开即可一键复制！</li>
+            </ul>
+            <p style="margin-top:12px;padding-top:12px;border-top:1px solid #a7f3d0;">
+                🔒 <strong>隐私说明</strong>：标记数据保存在云端(JSONBin)，刷新不丢失，分享者可实时查看使用状态。
+            </p>
         </div>
     </div>
-    
-    <!-- 使用说明 -->
-    <div class="card tips">
-        <h3>📖 使用说明</h3>
-        <ul>
-            <li>在输入框粘贴账号数据，每行一条</li>
-            <li>支持多种格式：<code>账号----密码</code> 或 <code>账号----密码----邮箱</code></li>
-            <li>点击账号行右侧的「复制」按钮，会自动复制并标记为已使用</li>
-            <li>使用后系统自动跳过已使用的账号，方便批量分配</li>
-            <li>「重置已使用」可以清空所有已使用标记</li>
-            <li>数据保存在浏览器本地，刷新不丢失</li>
-        </ul>
-        <p style="margin-top:12px;padding-top:12px;border-top:1px solid #a7f3d0;">
-            🔒 <strong>隐私说明</strong>：所有数据仅保存在您本地浏览器，不会上传到任何服务器
-        </p>
+</div>
+
+<!-- 分享弹窗 -->
+<div class="modal" id="shareModal">
+    <div class="modal-box">
+        <h3>🔗 分享链接</h3>
+        <p style="color:#666;font-size:13px;margin-bottom:16px;">复制下方链接发送给朋友，他们可以直接查看和使用账号</p>
+        <div class="share-link">
+            <input type="text" id="shareUrl" readonly>
+            <button onclick="copyShareUrl()">复制</button>
+        </div>
+        <div style="text-align:center;margin-top:20px;">
+            <button class="btn btn-gray" onclick="closeModal('shareModal')">关闭</button>
+        </div>
+    </div>
+</div>
+
+<!-- 我的分享弹窗 -->
+<div class="modal" id="mySharesModal">
+    <div class="modal-box">
+        <h3>📋 我的分享记录</h3>
+        <div id="sharesList" style="margin-top:16px;">
+            <p style="color:#999;text-align:center;padding:20px;">暂无分享记录</p>
+        </div>
+        <div style="text-align:center;margin-top:20px;">
+            <button class="btn btn-gray" onclick="closeModal('mySharesModal')">关闭</button>
+        </div>
     </div>
 </div>
 
 <script>
 // ============ 配置 ============
-const STORAGE_KEY = 'accountParserData';
-const USED_KEY = 'accountParserUsed';
+const JSONBIN_API = 'https://api.jsonbin.io/v3';
+const MASTER_KEY = '$2a$10$YcuC/l.PRLR9qXlvVmWae.HGMwNkhgxNDx/FNotNyyIip.ujfyujS';
+const STORAGE_KEY = 'accountParser_v2';
+const SHARES_KEY = 'myShares';
+
+// ============ 状态 ============
+let accounts = [];
+let usedMarks = {};
+let showPwd = false;
+let currentBinId = null;
 
 // ============ 初始化 ============
-let accounts = [];
-let usedAccounts = {};
-let showAllPwd = false;
-
 document.addEventListener('DOMContentLoaded', () => {
-    // 恢复分隔符
-    const savedSep = localStorage.getItem('accountParserSep');
-    if (savedSep) document.getElementById('separator').value = savedSep;
+    // 检查URL参数
+    const urlParams = new URLSearchParams(window.location.search);
+    const binId = urlParams.get('id');
     
-    // 恢复已使用状态
-    const savedUsed = localStorage.getItem(USED_KEY);
-    if (savedUsed) usedAccounts = JSON.parse(savedUsed);
-    
-    renderStats();
+    if (binId) {
+        // 加载分享的记录
+        loadSharedData(binId);
+    } else {
+        // 恢复本地数据
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            const data = JSON.parse(saved);
+            document.getElementById('inputData').value = data.raw || '';
+            document.getElementById('separator').value = data.sep || '----';
+            if (data.accounts) {
+                accounts = data.accounts;
+                usedMarks = data.used || {};
+                renderTable();
+            }
+        }
+    }
 });
 
 // ============ 解析数据 ============
@@ -335,16 +458,11 @@ function parseData() {
         return;
     }
     
-    // 保存分隔符
-    localStorage.setItem('accountParserSep', separator);
-    
-    // 解析每行
+    // 解析
     const lines = input.split('\n').filter(l => l.trim());
     accounts = lines.map((line, index) => {
-        // 尝试多种分隔符
         let parts;
         if (separator.includes('|')) {
-            // 多分隔符
             const seps = separator.split('|');
             let remaining = line;
             for (const sep of seps) {
@@ -366,8 +484,18 @@ function parseData() {
         };
     }).filter(a => a.account);
     
+    usedMarks = {};
+    currentBinId = null;
+    
+    // 保存到本地
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        raw: input,
+        sep: separator,
+        accounts: accounts,
+        used: usedMarks
+    }));
+    
     renderTable();
-    renderStats();
     showToast(`成功解析 ${accounts.length} 条账号`);
 }
 
@@ -376,12 +504,15 @@ function renderTable() {
     const container = document.getElementById('resultArea');
     
     if (accounts.length === 0) {
-        container.innerHTML = '<div class="empty">粘贴数据并点击「解析数据」开始</div>';
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="icon">📋</div>
+                <p>暂无数据</p>
+                <p style="font-size:12px;margin-top:8px;">请在上方粘贴账号信息并点击「解析数据」</p>
+            </div>`;
+        updateStats();
         return;
     }
-    
-    // 过滤掉已使用的账号，找到第一个未使用的
-    const unusedAccounts = accounts.filter(a => !usedAccounts[a.id]);
     
     let html = `<table>
         <thead>
@@ -390,25 +521,27 @@ function renderTable() {
                 <th>账号</th>
                 <th>密码</th>
                 <th>邮箱</th>
-                <th class="action">操作</th>
+                <th class="op-col">操作</th>
             </tr>
         </thead>
         <tbody>`;
     
     accounts.forEach((a, i) => {
-        const isUsed = usedAccounts[a.id];
-        const isFirst = !isUsed && unusedAccounts.length > 0 && a.id === unusedAccounts[0].id;
-        const pwdDisplay = showAllPwd || isFirst ? escapeHtml(a.password) : '••••••••';
+        const isUsed = usedMarks[a.id];
+        const pwdDisplay = showPwd || !a.password ? (a.password || '-') : '••••••••';
         
-        html += `<tr style="${isUsed ? 'opacity:0.5' : isFirst ? 'background:#ecfdf5' : ''}">
+        html += `<tr>
             <td class="seq">${i + 1}</td>
-            <td class="account">${escapeHtml(a.account)}${isUsed ? '<span class="used-tag">已用</span>' : ''}</td>
-            <td class="password">${pwdDisplay}</td>
-            <td class="email">${escapeHtml(a.email || '-')}</td>
-            <td class="action">
+            <td class="account-col">
+                ${escapeHtml(a.account)}
+                ${isUsed ? '<span class="used-badge">已用</span>' : ''}
+            </td>
+            <td class="pwd-col ${showPwd ? '' : 'hidden'}">${escapeHtml(pwdDisplay)}</td>
+            <td class="email-col">${escapeHtml(a.email || '-')}</td>
+            <td class="op-col">
                 ${isUsed ? 
-                    '<button disabled style="background:#ccc">已复制</button>' : 
-                    `<button onclick="copyAndMark(${a.id})">${isFirst ? '✨ 复制' : '复制'}</button>`
+                    '<button disabled>已复制</button>' : 
+                    `<button onclick="copyAccount(${a.id})">复制</button>`
                 }
             </td>
         </tr>`;
@@ -416,59 +549,207 @@ function renderTable() {
     
     html += '</tbody></table>';
     container.innerHTML = html;
+    updateStats();
 }
 
-// ============ 复制并标记 ============
-function copyAndMark(id) {
+function updateStats() {
+    document.getElementById('totalCount').textContent = accounts.length;
+    const used = Object.keys(usedMarks).filter(k => usedMarks[k]).length;
+    document.getElementById('usedCount').textContent = used;
+}
+
+// ============ 复制功能 ============
+function copyAccount(id) {
     const account = accounts.find(a => a.id === id);
     if (!account) return;
     
     const text = account.password || account.account;
     navigator.clipboard.writeText(text).then(() => {
-        usedAccounts[id] = true;
-        localStorage.setItem(USED_KEY, JSON.stringify(usedAccounts));
+        usedMarks[id] = true;
+        
+        // 更新本地存储
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+        saved.used = usedMarks;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+        
+        // 如果已分享，更新云端
+        if (currentBinId) {
+            updateSharedData();
+        }
+        
         renderTable();
-        renderStats();
         showToast('已复制：' + text);
-    }).catch(() => {
-        showToast('复制失败，请手动复制');
     });
 }
 
-// ============ 统计 ============
-function renderStats() {
-    document.getElementById('totalCount').textContent = accounts.length;
-    const usedCount = Object.keys(usedAccounts).filter(id => usedAccounts[id] && accounts.find(a => a.id == id)).length;
-    document.getElementById('usedCount').textContent = usedCount;
+// ============ 分享功能 ============
+async function shareCurrent() {
+    if (accounts.length === 0) {
+        showToast('请先解析数据');
+        return;
+    }
+    
+    showToast('正在生成分享链接...');
+    
+    try {
+        const data = {
+            accounts: accounts,
+            used: usedMarks,
+            createdAt: Date.now()
+        };
+        
+        const res = await fetch(`${JSONBIN_API}/b`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': MASTER_KEY
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await res.json();
+        if (result.metadata && result.metadata.id) {
+            currentBinId = result.metadata.id;
+            
+            // 保存到分享记录
+            const shares = JSON.parse(localStorage.getItem(SHARES_KEY) || '[]');
+            shares.unshift({
+                binId: currentBinId,
+                count: accounts.length,
+                createdAt: Date.now()
+            });
+            localStorage.setItem(SHARES_KEY, JSON.stringify(shares.slice(0, 20)));
+            
+            // 显示分享链接
+            const shareUrl = `${window.location.origin}${window.location.pathname}?id=${currentBinId}`;
+            document.getElementById('shareUrl').value = shareUrl;
+            document.getElementById('shareModal').classList.add('show');
+        }
+    } catch (e) {
+        showToast('分享失败，请重试');
+    }
 }
 
-// ============ 功能按钮 ============
-function clearAll() {
-    if (!confirm('确定要清空所有数据吗？')) return;
-    document.getElementById('inputData').value = '';
-    accounts = [];
-    usedAccounts = {};
-    localStorage.removeItem(USED_KEY);
-    renderTable();
-    renderStats();
-    showToast('已清空');
+async function loadSharedData(binId) {
+    showToast('正在加载分享数据...');
+    
+    try {
+        const res = await fetch(`${JSONBIN_API}/b/${binId}/latest`, {
+            headers: { 'X-Master-Key': MASTER_KEY }
+        });
+        
+        const result = await res.json();
+        if (result.record) {
+            accounts = result.record.accounts || [];
+            usedMarks = result.record.used || {};
+            currentBinId = binId;
+            renderTable();
+            showToast('已加载分享数据');
+        }
+    } catch (e) {
+        showToast('加载失败，链接可能已过期');
+    }
 }
 
-function resetAll() {
-    if (!confirm('确定要重置所有已使用标记吗？')) return;
-    usedAccounts = {};
-    localStorage.removeItem(USED_KEY);
-    renderTable();
-    renderStats();
-    showToast('已重置');
+async function updateSharedData() {
+    if (!currentBinId) return;
+    
+    try {
+        const data = {
+            accounts: accounts,
+            used: usedMarks,
+            updatedAt: Date.now()
+        };
+        
+        await fetch(`${JSONBIN_API}/b/${currentBinId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': MASTER_KEY
+            },
+            body: JSON.stringify(data)
+        });
+    } catch (e) {
+        console.error('Update failed:', e);
+    }
 }
 
-function toggleAllPwd() {
-    showAllPwd = !showAllPwd;
-    renderTable();
+function copyShareUrl() {
+    const url = document.getElementById('shareUrl');
+    url.select();
+    navigator.clipboard.writeText(url.value).then(() => {
+        showToast('链接已复制');
+    });
+}
+
+// ============ 我的分享 ============
+function showMyShares() {
+    const shares = JSON.parse(localStorage.getItem(SHARES_KEY) || '[]');
+    const container = document.getElementById('sharesList');
+    
+    if (shares.length === 0) {
+        container.innerHTML = '<p style="color:#999;text-align:center;padding:20px;">暂无分享记录</p>';
+    } else {
+        container.innerHTML = shares.map(s => `
+            <div class="record-item">
+                <div class="info">
+                    <div class="title">分享记录 (${s.count}条账号)</div>
+                    <div class="meta">${new Date(s.createdAt).toLocaleString()}</div>
+                </div>
+                <div class="actions">
+                    <button class="view-btn" onclick="viewShare('${s.binId}')">查看</button>
+                    <button class="del-btn" onclick="deleteShare('${s.binId}')">删除</button>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    document.getElementById('mySharesModal').classList.add('show');
+}
+
+function viewShare(binId) {
+    window.open(`?id=${binId}`, '_blank');
+}
+
+function deleteShare(binId) {
+    let shares = JSON.parse(localStorage.getItem(SHARES_KEY) || '[]');
+    shares = shares.filter(s => s.binId !== binId);
+    localStorage.setItem(SHARES_KEY, JSON.stringify(shares));
+    showMyShares();
 }
 
 // ============ 工具函数 ============
+function clearAll() {
+    if (!confirm('确定清空所有数据？')) return;
+    document.getElementById('inputData').value = '';
+    accounts = [];
+    usedMarks = {};
+    currentBinId = null;
+    localStorage.removeItem(STORAGE_KEY);
+    renderTable();
+    showToast('已清空');
+}
+
+function resetMarks() {
+    if (!confirm('确定重置所有已使用标记？')) return;
+    usedMarks = {};
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    saved.used = {};
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+    if (currentBinId) updateSharedData();
+    renderTable();
+    showToast('已重置');
+}
+
+function togglePwd() {
+    showPwd = !showPwd;
+    renderTable();
+}
+
+function closeModal(id) {
+    document.getElementById(id).classList.remove('show');
+}
+
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text || '';
@@ -485,6 +766,13 @@ function showToast(msg) {
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 2000);
 }
+
+// 点击弹窗背景关闭
+document.querySelectorAll('.modal').forEach(m => {
+    m.addEventListener('click', e => {
+        if (e.target === m) m.classList.remove('show');
+    });
+});
 </script>
 </body>
 </html>
