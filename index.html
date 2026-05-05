@@ -251,11 +251,11 @@
             </div>
             <div class="form-group">
                 <label>密码</label>
-                <input type="password" id="regPw" placeholder="至少16位" autocomplete="new-password">
+                <input type="password" id="regPw" placeholder="至少6位" autocomplete="new-password">
             </div>
             <div class="msg" id="regMsg"></div>
             <button class="btn" onclick="doRegister()">注 册</button>
-            <div class="hint">密码至少16位，请妥善保管</div>
+            <div class="hint">密码至少6位，请妥善保管</div>
         </div>
     </div>
 </div>
@@ -347,7 +347,7 @@ async function doRegister() {
     const username = document.getElementById('regUser').value.trim();
     const password = document.getElementById('regPw').value;
     if (!username || username.length < 4) return showMsg('regMsg', '用户名至少4位', 'error');
-    if (password.length < 16) return showMsg('regMsg', '密码至少16位', 'error');
+    if (password.length < 6) return showMsg('regMsg', '密码至少6位', 'error');
 
     try {
         const res = await fetch(`${API_URL}/api/user/register`, {
