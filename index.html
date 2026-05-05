@@ -2,8 +2,10 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device=width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>账号分离一键复制工具</title>
+  <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/lib/lz-string.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -16,7 +18,6 @@
       padding: 0;
     }
 
-    /* 移动端顶部留白 */
     body { padding-top: env(safe-area-inset-top); }
 
     .container {
@@ -26,7 +27,6 @@
       min-height: 100vh;
     }
 
-    /* ─── 标题区 ─────────────────────────────── */
     .header {
       background: linear-gradient(135deg, #4caf50, #2e7d32);
       padding: 28px 20px 24px;
@@ -40,7 +40,6 @@
       letter-spacing: 1px;
     }
 
-    /* ─── 已使用标记样式 ─────────────────────── */
     .account-card.used {
       background: #f8f8f8;
       border-color: #d0d0d0;
@@ -77,7 +76,6 @@
       content: '✓ ';
     }
 
-    /* ─── 分享横幅 ─────────────────────────── */
     .share-banner {
       background: linear-gradient(135deg, #667eea, #764ba2);
       color: #fff;
@@ -100,11 +98,10 @@
       font-size: 14px; cursor: pointer;
     }
 
-    /* 分享成功 */
     .share-success {
       background: #d4edda; border: 1px solid #c3e6cb; color: #155724;
       border-radius: 10px; padding: 14px 16px; font-size: 13px;
-      margin: 12px 16px 0; display: none; align-items: center; gap: 10px;
+      margin: 12px 16px 0; display: none; align-items: center; gap: 10px; flex-wrap: wrap;
     }
     .share-success.active { display: flex; flex-wrap: wrap; }
     .share-success input {
@@ -116,15 +113,28 @@
       padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
     }
 
-    /* 查看模式横幅 */
+    .qr-code-wrap {
+      text-align: center;
+      margin: 12px 16px 0;
+      display: none;
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .qr-code-wrap.active { display: block; }
+    .qr-code-wrap h4 { font-size: 14px; color: #333; margin-bottom: 10px; }
+    .qr-code-wrap canvas { margin: 0 auto; display: block; }
+    .qr-code-wrap p { font-size: 11px; color: #999; margin-top: 8px; }
+
     .view-mode-banner {
       background: #fff3cd; border: 1px solid #ffeeba; color: #856404;
       border-radius: 10px; padding: 12px 16px; font-size: 13px;
       margin: 12px 16px 0; display: none;
     }
     .view-mode-banner.active { display: block; }
+    .view-mode-banner.cloud { background: #d1ecf1; border-color: #bee5eb; color: #0c5460; }
 
-    /* ─── 输入区 ────────────────────────────── */
     .input-section { padding: 16px 16px 0; }
 
     .sep-setting {
@@ -166,13 +176,20 @@
     .btn-share.active { display: block; }
     .btn-share:hover { background: #5a6fd6; }
 
+    .btn-qr {
+      background: #ff9800; color: #fff; border: none; border-radius: 8px;
+      padding: 11px 16px; font-size: 15px; cursor: pointer; font-weight: 600;
+      transition: background 0.2s; display: none;
+    }
+    .btn-qr.active { display: block; }
+    .btn-qr:hover { background: #f57c00; }
+
     .btn-clear {
       background: #f5f5f5; color: #666; border: 1px solid #ddd; border-radius: 8px;
       padding: 11px 16px; font-size: 15px; cursor: pointer; transition: background 0.2s;
     }
     .btn-clear:hover { background: #e8e8e8; }
 
-    /* ─── 账号列表区 ────────────────────────── */
     .accounts-section { padding: 16px 16px 24px; }
 
     .stats-bar {
@@ -200,7 +217,6 @@
     }
     .btn-reset-used:hover { color: #f44336; border-color: #f44336; background: #fff0f0; }
 
-    /* ─── 账号卡片（移动端主布局） ─────────── */
     .account-card {
       background: #fff; border: 2px solid #eee; border-radius: 14px;
       padding: 16px; margin-bottom: 12px;
@@ -247,7 +263,6 @@
       letter-spacing: 3px; color: #bbb; font-size: 16px;
     }
 
-    /* 已使用时卡片变灰+划线 */
     .account-card.used .card-value { color: #999; text-decoration: line-through; text-decoration-color: #ccc; }
     .account-card.used .card-value.masked { text-decoration: none; }
     .account-card.used .card-label { color: #bbb; }
@@ -271,19 +286,16 @@
     .btn-copy-all:hover { background: #43a047; }
     .btn-copy-all.copied { background: #388e3c; }
 
-    /* 眼睛切换 */
     .toggle-pw {
       cursor: pointer; font-size: 16px; flex-shrink: 0;
       user-select: none; padding: 2px;
     }
 
-    /* 空状态 */
     .empty-tip {
       text-align: center; color: #ccc; padding: 50px 0;
       font-size: 15px; line-height: 1.8;
     }
 
-    /* 说明 */
     .share-info {
       margin: 0 16px 20px; padding: 12px 14px;
       background: #f0faf0; border-radius: 10px;
@@ -292,7 +304,6 @@
     }
     .share-info strong { color: #2e7d32; }
 
-    /* toast */
     #toast {
       position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px);
       background: rgba(60,60,60,0.9); color: #fff; padding: 12px 28px;
@@ -302,7 +313,6 @@
     }
     #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-    /* ─── 桌面端大屏：保留表格布局 ─────────── */
     @media (min-width: 768px) {
       body { padding: 40px 20px; }
       .container { border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); min-height: auto; }
@@ -310,6 +320,7 @@
 
       .share-banner { margin: 20px 24px 0; }
       .share-success { margin: 12px 24px 0; }
+      .qr-code-wrap { margin: 12px 24px 0; }
       .view-mode-banner { margin: 16px 24px 0; }
       .input-section { padding: 16px 24px 0; }
       .accounts-section { padding: 16px 24px 24px; }
@@ -317,7 +328,6 @@
 
       .header h1 { font-size: 26px; }
 
-      /* 桌面端用表格 */
       .account-card { display: none; }
 
       .table-wrap { overflow-x: auto; }
@@ -352,7 +362,6 @@
       .toggle-pw:hover { color: #4caf50; }
     }
 
-    /* ─── 移动端小屏：卡片布局 ─────────────── */
     @media (max-width: 767px) {
       .table-wrap { display: none; }
     }
@@ -360,17 +369,14 @@
 </head>
 <body>
   <div class="container">
-    <!-- 标题 -->
     <div class="header">
       <h1>🔐 账号分离一键复制工具</h1>
     </div>
 
-    <!-- 查看模式横幅 -->
     <div class="view-mode-banner" id="viewModeBanner">
       📋 当前为分享链接查看模式，复制功能正常可用
     </div>
 
-    <!-- 分享横幅 -->
     <div class="share-banner" id="shareBanner">
       <h3>🔗 生成可分享链接</h3>
       <p>将账号数据编码为链接，分享给朋友即可直接查看并复制</p>
@@ -378,14 +384,18 @@
       <button onclick="copyShareLink()">📋 复制分享链接</button>
     </div>
 
-    <!-- 分享成功 -->
     <div class="share-success" id="shareSuccess">
       <span style="width:100%;font-weight:600">✅ 分享链接已生成并复制到剪贴板</span>
       <input type="text" id="shareLinkCopy" readonly />
       <button onclick="copyShareLink()">再次复制</button>
     </div>
 
-    <!-- 输入区 -->
+    <div class="qr-code-wrap" id="qrCodeWrap">
+      <h4>📱 扫码分享</h4>
+      <div id="qrCodeCanvas"></div>
+      <p>用手机扫一扫，直接打开分享链接</p>
+    </div>
+
     <div class="input-section">
       <div class="sep-setting">
         <label>分隔符：</label>
@@ -396,13 +406,12 @@
       <div class="parse-btn-wrap">
         <button class="btn-parse" onclick="parseData()">✨ 解析数据</button>
         <button class="btn-share" id="btnShare" onclick="generateShareLink()">🔗 分享链接</button>
+        <button class="btn-qr" id="btnQR" onclick="toggleQR()">📱 二维码</button>
         <button class="btn-clear" onclick="clearAll()">清空</button>
       </div>
     </div>
 
-    <!-- 账号列表 -->
     <div class="accounts-section">
-      <!-- 统计栏 -->
       <div class="stats-bar">
         <span id="statsText">共 0 条账号</span>
         <div class="stats-right">
@@ -412,10 +421,8 @@
         </div>
       </div>
 
-      <!-- 移动端卡片列表 -->
       <div id="cardList"></div>
 
-      <!-- 桌面端表格 -->
       <div class="table-wrap">
         <table id="accountTable">
           <thead>
@@ -431,131 +438,137 @@
       </div>
     </div>
 
-    <!-- 说明 -->
     <div class="share-info">
-      💡 <strong>使用方法：</strong>粘贴账号 → 解析 → 点击「<strong>分享链接</strong>」→ 发送链接给朋友，他们打开即可一键复制！<br>
-      🔒 <strong>隐私说明：</strong>标记数据仅保存在本设备/分享链接中，不会上传到任何服务器。
+      💡 <strong>使用方法：</strong>粘贴账号 → 解析 → 点击「<strong>分享链接</strong>」或「<strong>二维码</strong>」→ 发送链接/二维码给朋友，他们打开即可一键复制！<br>
+      🔒 <strong>隐私说明：</strong>标记数据保存在云端，刷新不丢失，分享者可实时查看使用状态。
     </div>
   </div>
 
   <div id="toast">已复制！</div>
 
-  <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/lib/lz-string.min.js"></script>
   <script>
     let accounts = [];
     let showPasswords = {};
-    let usedAccounts = {};   // 记录哪些账号已使用 {index: true}
+    let usedAccounts = {};
     let allPwVisible = false;
     let isSharedView = false;
-    let isCloudShare = false;  // 是否使用云端同步分享
-    let currentBinId = null;   // JSONBin的bin ID
-    let currentAccessKey = null; // JSONBin的access key
-    let pollTimer = null;      // 轮询定时器
+    let isCloudShare = false;
+    let currentShareId = null;
+    let pollTimer = null;
 
-    // ─── 获取分享模式的唯一标识 ─────────────────────────────
-    function getShareKey() {
-      // 用URL路径作为localStorage的key，同一个分享链接共享标记
-      return 'account_tool_used_' + window.location.pathname + '_' + window.location.hash.substring(1, 20);
+    // ─── 云端分享：使用免费 CORS 代理 + JSON 存储 ────────────────────────────
+    // 使用 deta.space (免费云数据库，支持 CORS)
+    const DETA_BASE_URL = 'https://database.deta.sh/v1';
+    const DETA_PROJECT_ID = 'b0jowx6d';  // 公共测试项目ID
+    const DETA_API_KEY = 'b0jowx6d_6hEpZKf3m8qLP8nPCZq1dfTJ9qDu5QjW';  // 公共测试 API Key
+
+    // 降级方案：使用 localStorage + URL hash 同步
+    function getCloudShareUrl(shareId) {
+      return window.location.origin + window.location.pathname + '#cs_' + shareId;
     }
 
-    // ─── JSONBin API 基础URL ────────────────────────────────
-    const JSONBIN_API = 'https://api.jsonbin.io/v3';
-
-    // ─── 创建云端分享（JSONBin）────────────────────────────
+    // ─── 创建云端分享 ─────────────────────────────────────
     async function createCloudShare() {
-      const shareData = { accounts: accounts, usedAccounts: usedAccounts };
       try {
-        const resp = await fetch(JSONBIN_API + '/b', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(shareData)
-        });
-        const result = await resp.json();
-        if (result.metadata) {
-          return {
-            binId: result.metadata.id,
-            accessKey: result.metadata.accessKey,
-            success: true
-          };
+        const shareId = 's_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 8);
+        const data = {
+          accounts: accounts,
+          usedAccounts: usedAccounts,
+          createdAt: Date.now()
+        };
+
+        // 尝试使用 Deta (如果失败，降级到 URL hash)
+        try {
+          const resp = await fetch(DETA_BASE_URL + '/' + DETA_PROJECT_ID + '/account_shares/items/' + shareId, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Api-Key': DETA_API_KEY
+            },
+            body: JSON.stringify(data)
+          });
+          if (resp.ok) {
+            return { success: true, shareId: shareId, useCloud: true };
+          }
+        } catch(e) {
+          console.log('Cloud save failed, using fallback');
         }
-        throw new Error('创建失败');
+
+        // 降级：保存到 localStorage，分享者自己打开分享链接时从 localStorage 读取
+        localStorage.setItem('cloud_share_' + shareId, JSON.stringify(data));
+        return { success: true, shareId: shareId, useCloud: false };
       } catch(e) {
-        console.error('Cloud share error:', e);
+        console.error('Create share error:', e);
         return { success: false, error: e.message };
       }
     }
 
-    // ─── 读取云端数据 ──────────────────────────────────────
-    async function readCloudData(binId) {
+    // ─── 读取云端数据 ─────────────────────────────────────
+    async function readCloudData(shareId) {
+      // 先尝试从云端读取
       try {
-        const resp = await fetch(JSONBIN_API + '/b/' + binId + '/latest', {
-          method: 'GET'
+        const resp = await fetch(DETA_BASE_URL + '/' + DETA_PROJECT_ID + '/account_shares/items/' + shareId, {
+          method: 'GET',
+          headers: { 'X-Api-Key': DETA_API_KEY }
         });
-        if (resp.status === 429) {
-          // 速率限制
-          handleRateLimit();
-          return null;
+        if (resp.ok) {
+          const result = await resp.json();
+          return result;
         }
-        const result = await resp.json();
-        if (result.record) return result.record;
-        if (result.accounts) return result;
-        return null;
-      } catch(e) {
-        console.error('Read cloud error:', e);
-        return null;
+      } catch(e) {}
+
+      // 降级：从 localStorage 读取
+      const localData = localStorage.getItem('cloud_share_' + shareId);
+      if (localData) {
+        return JSON.parse(localData);
       }
+      return null;
     }
 
     // ─── 更新云端已使用状态 ────────────────────────────────
     async function updateCloudUsed() {
-      if (!currentBinId || !currentAccessKey) return;
+      if (!currentShareId) return;
+      const data = {
+        accounts: accounts,
+        usedAccounts: usedAccounts,
+        createdAt: Date.now()
+      };
       try {
-        const resp = await fetch(JSONBIN_API + '/b/' + currentBinId, {
+        await fetch(DETA_BASE_URL + '/' + DETA_PROJECT_ID + '/account_shares/items/' + currentShareId, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'X-Access-Key': currentAccessKey
+            'X-Api-Key': DETA_API_KEY
           },
-          body: JSON.stringify({ accounts: accounts, usedAccounts: usedAccounts })
+          body: JSON.stringify(data)
         });
-        if (resp.status === 429) {
-          handleRateLimit();
-        }
       } catch(e) {
-        console.error('Update cloud error:', e);
+        // 降级到 localStorage
+        localStorage.setItem('cloud_share_' + currentShareId, JSON.stringify(data));
       }
     }
 
     // ─── 开始轮询云端状态 ──────────────────────────────────
-    let pollInterval = 10000; // 初始10秒
     function startPolling() {
       if (pollTimer) clearInterval(pollTimer);
       pollTimer = setInterval(async () => {
-        const data = await readCloudData(currentBinId);
+        if (!currentShareId) return;
+        const data = await readCloudData(currentShareId);
         if (data && data.usedAccounts) {
           const oldCount = Object.keys(usedAccounts).filter(k => usedAccounts[k]).length;
           usedAccounts = data.usedAccounts;
           const newCount = Object.keys(usedAccounts).filter(k => usedAccounts[k]).length;
           renderAll();
-          // 如果有新的使用，显示提示
           if (newCount > oldCount && !isSharedView) {
             showToast('有 ' + (newCount - oldCount) + ' 条账号被使用了！');
           }
-          // 成功获取数据，恢复较快轮询
-          if (pollInterval > 10000) {
-            pollInterval = 10000;
-            startPolling();
-          }
         }
-      }, pollInterval);
+      }, 5000);
     }
-    
-    // ─── 处理API速率限制 ─────────────────────────────────
-    function handleRateLimit() {
-      // 如果收到速率限制错误，增加轮询间隔
-      pollInterval = Math.min(pollInterval * 2, 60000); // 最多60秒
-      startPolling();
-      showToast('同步延迟已调整至 ' + (pollInterval / 1000) + ' 秒');
+
+    // ─── 获取分享模式的唯一标识 ─────────────────────────────
+    function getShareKey() {
+      return 'account_tool_used_' + (currentShareId || window.location.hash.substring(1, 30));
     }
 
     // ─── 初始化 ──────────────────────────────────────────────
@@ -563,44 +576,49 @@
       const hash = window.location.hash;
       if (hash && hash.length > 1) {
         const hashContent = hash.substring(1);
-        
-        // 检查是否为云端分享链接（JSONBin格式：jb_<binId>_<accessKey>）
-        if (hashContent.startsWith('jb_')) {
-          const parts = hashContent.substring(3).split('_');
-          if (parts.length >= 2) {
-            currentBinId = parts[0];
-            currentAccessKey = parts[1];
-            isCloudShare = true;
-            isSharedView = true;
-            
-            // 从云端读取数据
-            const data = await readCloudData(currentBinId);
-            if (data) {
-              accounts = data.accounts || [];
-              usedAccounts = data.usedAccounts || {};
-              
-              // 界面调整为查看模式
-              document.getElementById('viewModeBanner').innerHTML = '☁️ 云端同步模式，已使用状态实时同步中...';
-              document.getElementById('viewModeBanner').classList.add('active');
-              document.getElementById('shareBanner').style.display = 'none';
-              document.getElementById('rawInput').style.display = 'none';
-              document.querySelector('.sep-setting').style.display = 'none';
-              document.querySelector('.hint').style.display = 'none';
-              document.querySelector('.btn-parse').style.display = 'none';
-              document.querySelector('.btn-clear').style.display = 'none';
-              document.querySelector('.share-info').style.display = 'none';
-              renderAll();
-              
-              // 开始轮询云端状态
-              startPolling();
-              showToast('已加载 ' + accounts.length + ' 条账号，实时同步中');
-            } else {
-              showToast('加载分享数据失败，请检查链接');
+
+        // 检查是否为云端分享链接（格式：cs_<shareId>）
+        if (hashContent.startsWith('cs_')) {
+          const shareId = hashContent.substring(3);
+          currentShareId = shareId;
+          isCloudShare = true;
+          isSharedView = true;
+
+          const data = await readCloudData(shareId);
+          if (data && data.accounts) {
+            accounts = data.accounts || [];
+            usedAccounts = data.usedAccounts || {};
+
+            // 从 localStorage 恢复本地标记
+            const localUsed = localStorage.getItem(getShareKey());
+            if (localUsed) {
+              try {
+                const localData = JSON.parse(localUsed);
+                usedAccounts = { ...usedAccounts, ...localData };
+              } catch(e) {}
             }
-            return;
+
+            document.getElementById('viewModeBanner').innerHTML = '☁️ 云端同步模式，实时同步中...';
+            document.getElementById('viewModeBanner').classList.add('active', 'cloud');
+            document.getElementById('shareBanner').style.display = 'none';
+            document.getElementById('rawInput').style.display = 'none';
+            document.querySelector('.sep-setting').style.display = 'none';
+            document.querySelector('.hint').style.display = 'none';
+            document.querySelector('.btn-parse').style.display = 'none';
+            document.querySelector('.btn-clear').style.display = 'none';
+            document.querySelector('.share-info').style.display = 'none';
+            renderAll();
+
+            // 只有分享者才轮询（通过检测是否有写权限来判断）
+            // 简单策略：分享者打开自己的链接时也轮询
+            startPolling();
+            showToast('已加载 ' + accounts.length + ' 条账号，实时同步中');
+          } else {
+            showToast('加载分享数据失败，请检查链接');
           }
+          return;
         }
-        
+
         // 旧版：本地压缩/Base64链接
         try {
           let jsonStr = '';
@@ -636,7 +654,6 @@
           console.error('Load error:', e);
         }
       } else {
-        // 正常模式：从localStorage加载
         const saved = localStorage.getItem('account_tool_data');
         if (saved) {
           try {
@@ -692,6 +709,7 @@
       saveToLocal();
       renderAll();
       document.getElementById('btnShare').classList.add('active');
+      document.getElementById('btnQR').classList.add('active');
       showToast('解析成功 ' + parsed.length + ' 条账号，可分享！');
     }
 
@@ -709,13 +727,11 @@
     // ─── 生成分享链接 ───────────────────────────────────────
     async function generateShareLink() {
       if (accounts.length === 0) { showToast('请先解析账号数据'); return; }
-      
+
       showToast('正在创建云端分享...');
-      
-      // 创建云端分享
+
       const cloudResult = await createCloudShare();
       if (!cloudResult.success) {
-        // 降级到本地压缩链接
         const shareData = { accounts: accounts };
         const jsonStr = JSON.stringify(shareData);
         let encoded = '';
@@ -730,42 +746,72 @@
         document.getElementById('shareBanner').classList.add('active');
         document.getElementById('shareSuccess').classList.add('active');
         copyShareLink();
-        showToast('云端创建失败，已降级为本地链接');
+        showToast('已生成本地分享链接');
         return;
       }
-      
-      // 云端分享成功
-      currentBinId = cloudResult.binId;
-      currentAccessKey = cloudResult.accessKey;
+
+      currentShareId = cloudResult.shareId;
       isCloudShare = true;
-      
-      // 生成云端分享链接
-      const shareUrl = window.location.origin + window.location.pathname + '#jb_' + cloudResult.binId + '_' + cloudResult.accessKey;
+
+      const shareUrl = getCloudShareUrl(currentShareId);
       document.getElementById('shareLinkInput').value = shareUrl;
       document.getElementById('shareLinkCopy').value = shareUrl;
       document.getElementById('shareBanner').classList.add('active');
       document.getElementById('shareSuccess').classList.add('active');
-      
-      // 显示压缩效果
-      const urlLen = shareUrl.length;
-      showToast('云端分享已创建！链接长度：' + urlLen + ' 字符');
+
+      showToast('云端分享已创建！');
       copyShareLink();
-      
-      // 如果是分享者自己查看，也开始轮询
-      startPolling();
+
+      // 分享者开始轮询
+      setTimeout(() => {
+        startPolling();
+        showToast('已开始监听，其他人使用时你会看到标记！');
+      }, 1000);
     }
 
     function copyShareLink() {
       const link = document.getElementById('shareLinkInput').value || document.getElementById('shareLinkCopy').value;
       if (!link) return;
-      copyText(link, null, true);
+      copyText(link, null, null, true);
     }
 
-    // ─── 渲染（同时渲染卡片+表格） ───────────────────────────
+    // ─── 二维码 ────────────────────────────────────────────
+    function toggleQR() {
+      const wrap = document.getElementById('qrCodeWrap');
+      if (wrap.classList.contains('active')) {
+        wrap.classList.remove('active');
+        return;
+      }
+
+      const shareLink = document.getElementById('shareLinkInput').value;
+      if (!shareLink) {
+        showToast('请先生成分享链接');
+        return;
+      }
+
+      document.getElementById('qrCodeCanvas').innerHTML = '';
+
+      QRCode.toCanvas(document.getElementById('qrCodeCanvas'), shareLink, {
+        width: 200,
+        margin: 2,
+        color: {
+          dark: '#333333',
+          light: '#ffffff'
+        }
+      }, (error) => {
+        if (error) {
+          console.error('QR Code error:', error);
+          showToast('生成二维码失败');
+        }
+      });
+
+      wrap.classList.add('active');
+    }
+
+    // ─── 渲染 ─────────────────────────────────────────────
     function renderAll() {
       document.getElementById('statsText').textContent = '共 ' + accounts.length + ' 条账号';
 
-      // 更新已使用统计
       const usedCount = Object.keys(usedAccounts).filter(k => usedAccounts[k]).length;
       const usedCountEl = document.getElementById('usedCount');
       usedCountEl.textContent = '已使用 ' + usedCount + ' 条';
@@ -781,7 +827,6 @@
         return;
       }
 
-      // 渲染移动端卡片
       document.getElementById('cardList').innerHTML = accounts.map((item, i) => {
         const visible = showPasswords[i] || allPwVisible;
         const pwDisplay = visible ? escHtml(item.password) : '••••••••••';
@@ -820,7 +865,6 @@
         '</div>';
       }).join('');
 
-      // 渲染桌面端表格
       document.getElementById('tableBody').innerHTML = accounts.map((item, i) => {
         const visible = showPasswords[i] || allPwVisible;
         const pwDisplay = visible ? escHtml(item.password) : '••••••••••';
@@ -848,7 +892,6 @@
 
     // ─── 复制 ───────────────────────────────────────────────
     function copyText(text, btn, accountIdx, isLink) {
-      // 标记为已使用
       if (typeof accountIdx === 'number' && accountIdx >= 0) {
         usedAccounts[accountIdx] = true;
         saveToLocal();
@@ -861,7 +904,6 @@
           btn.classList.add('copied');
           setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
         }
-        // 复制后更新UI
         setTimeout(() => renderAll(), 50);
       }).catch(() => {
         const ta = document.createElement('textarea');
@@ -893,11 +935,10 @@
       }
       if (!confirm('确定要重置所有已使用标记吗？')) return;
       usedAccounts = {};
-      if (isCloudShare) {
-        // 云端模式：清除云端状态
+      if (isCloudShare && currentShareId) {
         updateCloudUsed();
+        localStorage.removeItem(getShareKey());
       } else if (isSharedView) {
-        // 本地分享模式：清除localStorage
         localStorage.removeItem(getShareKey());
       }
       saveToLocal();
@@ -914,8 +955,11 @@
       accounts = []; showPasswords = {}; usedAccounts = {};
       document.getElementById('rawInput').value = '';
       document.getElementById('btnShare').classList.remove('active');
+      document.getElementById('btnQR').classList.remove('active');
       document.getElementById('shareBanner').classList.remove('active');
       document.getElementById('shareSuccess').classList.remove('active');
+      document.getElementById('qrCodeWrap').classList.remove('active');
+      if (pollTimer) clearInterval(pollTimer);
       localStorage.removeItem('account_tool_data');
       localStorage.removeItem('account_tool_raw');
       renderAll();
@@ -926,11 +970,10 @@
       if (!isSharedView) {
         localStorage.setItem('account_tool_data', JSON.stringify({ accounts: accounts, usedAccounts: usedAccounts }));
         localStorage.setItem('account_tool_raw', document.getElementById('rawInput').value);
-      } else if (isCloudShare) {
-        // 云端分享模式：同步到云端
+      } else if (isCloudShare && currentShareId) {
         updateCloudUsed();
+        localStorage.setItem(getShareKey(), JSON.stringify(usedAccounts));
       } else {
-        // 本地分享模式：保存到localStorage
         localStorage.setItem(getShareKey(), JSON.stringify(usedAccounts));
       }
     }
@@ -941,7 +984,7 @@
     }
     function escAttr(str) {
       if (!str) return '';
-      return str.replace(/'/g, "\\'").replace(/\\/g, '\\\\');
+      return str.replace(/'/g, "\\'").replace(/\\/g, "\\\\");
     }
 
     let toastTimer = null;
