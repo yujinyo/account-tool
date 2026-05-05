@@ -743,12 +743,22 @@
             const savedShareId = localStorage.getItem('account_tool_shareId');
             if (savedShareId) {
               document.getElementById('btnMyShare').classList.add('active');
-              // 自动开始监听
               currentBinId = savedShareId;
               startPolling();
             }
+            // 显示分享记录按钮（如果有记录）
+            const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
+            if (records.length > 0) {
+              document.getElementById('btnRecords').classList.add('active');
+            }
             renderAll();
           } catch(e) {}
+        } else {
+          // 即使没有账号数据，也检查是否有分享记录
+          const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
+          if (records.length > 0) {
+            document.getElementById('btnRecords').classList.add('active');
+          }
         }
       }
     });
@@ -801,6 +811,11 @@
       renderAll();
       document.getElementById('btnShare').classList.add('active');
       document.getElementById('btnQR').classList.add('active');
+      // 显示分享记录按钮
+      const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
+      if (records.length > 0) {
+        document.getElementById('btnRecords').classList.add('active');
+      }
       showToast('解析成功 ' + parsed.length + ' 条账号，可分享！');
     }
 
@@ -816,47 +831,52 @@
     }
 
     // ═══════════════════════════════════════════════════════
-    //  生成分享链接（云端同步版）
+    //  生成分享链接（快速响应版）
     // ═══════════════════════════════════════════════════════
     async function generateShareLink() {
       if (accounts.length === 0) { showToast('请先解析账号数据'); return; }
 
-      showToast('正在创建云端分享...');
-
-      const cloudResult = await createCloudShare();
-      if (!cloudResult.success) {
-        showToast('云端创建失败，已降级为本地链接');
-        // 降级：使用 LZString 压缩
-        const shareData = { accounts: accounts };
-        const jsonStr   = JSON.stringify(shareData);
-        let encoded     = '';
-        try {
-          encoded = LZString.compressToEncodedURIComponent(jsonStr);
-        } catch(e) {
-          encoded = btoa(unescape(encodeURIComponent(jsonStr)));
-        }
-        const shareUrl = window.location.origin + window.location.pathname + '#' + encoded;
-        showShareSuccess(shareUrl);
-        return;
+      // 1. 立即生成本地压缩链接（无需等待云端）
+      const shareData = { accounts: accounts };
+      const jsonStr  = JSON.stringify(shareData);
+      let encoded    = '';
+      try {
+        encoded = LZString.compressToEncodedURIComponent(jsonStr);
+      } catch(e) {
+        encoded = btoa(unescape(encodeURIComponent(jsonStr)));
       }
+      const localUrl = window.location.origin + window.location.pathname + '#' + encoded;
+      showShareSuccess(localUrl);
+      showToast('链接已生成，正在上传到云端同步...');
 
-      // 云端分享成功
-      currentBinId = cloudResult.binId;
-      isCloudShare = true;
-      isSharedView = false;  // 分享者自己，不是查看模式
+      // 2. 后台上传到云端（不阻塞UI）
+      (async () => {
+        const cloudResult = await createCloudShare();
+        if (cloudResult.success) {
+          currentBinId = cloudResult.binId;
+          isCloudShare = true;
+          isSharedView = false;
 
-      // 保存到 localStorage，方便"我的分享"功能
-      localStorage.setItem('account_tool_shareId', currentBinId);
+          localStorage.setItem('account_tool_shareId', currentBinId);
+          document.getElementById('btnMyShare').classList.add('active');
 
-      const shareUrl = window.location.origin + window.location.pathname + '#jb_' + currentBinId;
-      showShareSuccess(shareUrl);
+          // 更新链接显示为云端版本
+          const cloudUrl = window.location.origin + window.location.pathname + '#jb_' + currentBinId;
+          document.getElementById('shareLinkInput').value = cloudUrl;
+          document.getElementById('shareLinkCopy').value = cloudUrl;
 
-      // 显示"我的分享"按钮
-      document.getElementById('btnMyShare').classList.add('active');
+          // 再次复制云端链接
+          copyShareLink();
 
-      // 开始轮询，监听其他人使用的状态
-      startPolling();
-      showToast('云端分享已创建！其他人使用时你会看到标记');
+          startPolling();
+          showToast('✅ 云端同步已就绪！其他人使用时你会看到标记');
+
+          // 通知用户（如果用户还在页面上）
+          document.getElementById('btnRecords').classList.add('active');
+        } else {
+          showToast('⚠️ 云端上传失败，但本地链接仍可使用');
+        }
+      })();
     }
 
     function showShareSuccess(shareUrl) {
