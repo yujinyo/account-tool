@@ -528,17 +528,40 @@
     let pollTimer      = null;
 
     // ─── 保存分享记录到 localStorage ─────────────────────
-    function saveShareRecord(binId, accountCount) {
+    function saveShareRecord(binId, accountCount, note) {
       const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
       records.unshift({
         binId: binId,
         accountCount: accountCount,
         createdAt: Date.now(),
-        usedCount: 0
+        usedCount: 0,
+        note: note || ''
       });
       // 最多保留 50 条记录
       if (records.length > 50) records.length = 50;
       localStorage.setItem('account_tool_records', JSON.stringify(records));
+    }
+
+    // ─── 更新分享记录备注 ───────────────────────────────
+    function updateRecordNote(index, note) {
+      const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
+      if (records[index]) {
+        records[index].note = note;
+        localStorage.setItem('account_tool_records', JSON.stringify(records));
+        showToast('备注已保存');
+      }
+    }
+
+    // ─── 删除分享记录 ───────────────────────────────────
+    function deleteRecord(index) {
+      if (!confirm('确定要删除这条分享记录吗？')) return;
+      const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
+      if (records[index]) {
+        records.splice(index, 1);
+        localStorage.setItem('account_tool_records', JSON.stringify(records));
+        showToast('已删除');
+        showRecords(); // 刷新列表
+      }
     }
 
     // ─── 创建云端分享（JSONBin）────────────────────────────
@@ -571,22 +594,41 @@
     }
 
     // ─── 读取云端数据 ──────────────────────────────────────
-    async function readCloudData(binId) {
-      try {
-        const resp = await fetch(JSONBIN_API + '/b/' + binId + '/latest', {
-          method: 'GET',
-          headers: { 'X-Master-Key': JSONBIN_KEY }
-        });
-        const result = await resp.json();
-        // JSONBin 返回格式：{ record: {...} }
-        if (result.record) return result.record;
-        // 也可能直接返回数据
-        if (result.accounts) return result;
-        return null;
-      } catch (e) {
-        console.error('readCloudData error:', e);
-        return null;
+    async function readCloudData(binId, retries) {
+      retries = retries || 3; // 默认重试3次
+      let lastError = null;
+      
+      for (let i = 0; i < retries; i++) {
+        try {
+          // 添加时间戳防止缓存
+          const resp = await fetch(JSONBIN_API + '/b/' + binId + '/latest?_=' + Date.now(), {
+            method: 'GET',
+            headers: { 'X-Master-Key': JSONBIN_KEY }
+          });
+          
+          if (!resp.ok) {
+            console.error('HTTP error:', resp.status);
+            lastError = new Error('HTTP ' + resp.status);
+            if (i < retries - 1) await new Promise(r => setTimeout(r, 1000)); // 等待1秒后重试
+            continue;
+          }
+          
+          const result = await resp.json();
+          // JSONBin 返回格式：{ record: {...} }
+          if (result.record) return result.record;
+          // 也可能直接返回数据
+          if (result.accounts) return result;
+          // 可能是旧格式
+          if (result.data) return result.data;
+          return null;
+        } catch (e) {
+          console.error('readCloudData error:', e);
+          lastError = e;
+          if (i < retries - 1) await new Promise(r => setTimeout(r, 1000)); // 等待1秒后重试
+        }
       }
+      console.error('readCloudData failed after retries:', lastError);
+      return null;
     }
 
     // ─── 更新云端 usedAccounts ─────────────────────────────
@@ -673,29 +715,37 @@
           isCloudShare = true;
           isSharedView = true;
 
-          const data = await readCloudData(binId);
-          if (data && data.accounts) {
+          // 显示加载中状态
+          const banner = document.getElementById('viewModeBanner');
+          banner.innerHTML = '⏳ 正在加载分享数据...';
+          banner.classList.add('active', 'cloud');
+          document.getElementById('shareBanner').style.display = 'none';
+          document.getElementById('rawInput').style.display   = 'none';
+          document.querySelector('.sep-setting').style.display = 'none';
+          document.querySelector('.hint').style.display        = 'none';
+          document.querySelector('.btn-parse').style.display  = 'none';
+          document.querySelector('.btn-clear').style.display  = 'none';
+          document.querySelector('.share-info').style.display = 'none';
+
+          const data = await readCloudData(binId, 3);
+          if (data && data.accounts && data.accounts.length > 0) {
             accounts     = data.accounts || [];
             usedAccounts = data.usedAccounts || {};
 
             // 界面调整为查看模式
-            const banner = document.getElementById('viewModeBanner');
             banner.innerHTML = '☁️ 云端同步模式，已使用状态实时同步中...';
-            banner.classList.add('active', 'cloud');
-            document.getElementById('shareBanner').style.display = 'none';
-            document.getElementById('rawInput').style.display   = 'none';
-            document.querySelector('.sep-setting').style.display = 'none';
-            document.querySelector('.hint').style.display        = 'none';
-            document.querySelector('.btn-parse').style.display  = 'none';
-            document.querySelector('.btn-clear').style.display  = 'none';
-            document.querySelector('.share-info').style.display = 'none';
             renderAll();
 
             // 使用者也轮询，这样多设备之间可以互相同步
             startPolling();
             showToast('已加载 ' + accounts.length + ' 条账号，实时同步中');
           } else {
-            showToast('加载分享数据失败，请检查链接');
+            banner.innerHTML = '❌ 加载分享数据失败，请检查链接是否正确或分享是否已过期';
+            banner.style.background = '#fff3cd';
+            banner.style.borderColor = '#ffeeba';
+            banner.style.color = '#856404';
+            // 显示提示信息
+            document.getElementById('cardList').innerHTML = '<div class="empty-tip">加载失败<br>可能的原因：<br>• 链接已过期或被删除<br>• 网络连接问题<br>• 链接格式不正确</div>';
           }
           return;
         }
@@ -1170,15 +1220,24 @@
           const r = records[i];
           const shareUrl = window.location.origin + window.location.pathname + '#jb_' + r.binId;
           const timeStr  = new Date(r.createdAt).toLocaleString('zh-CN');
+          const noteDisplay = r.note ? '<span style="font-size:12px;color:#9c27b0;background:#f3e5f5;padding:2px 8px;border-radius:8px;margin-left:8px;">📝 ' + escHtml(r.note) + '</span>' : '';
           html += '<div style="border:1px solid #eee;border-radius:12px;padding:14px;margin-bottom:12px;background:#fafafa;">' +
-            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">' +
               '<span style="font-size:13px;color:#999;">' + timeStr + '</span>' +
-              '<span style="font-size:12px;color:#666;background:#e8f5e9;padding:2px 8px;border-radius:10px;">共 ' + r.accountCount + ' 条</span>' +
+              '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+                '<span style="font-size:12px;color:#666;background:#e8f5e9;padding:2px 8px;border-radius:10px;">共 ' + r.accountCount + ' 条</span>' +
+                noteDisplay +
+              '</div>' +
             '</div>' +
-            '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">' +
               '<button onclick="copyRecordLink(\'' + r.binId + '\')" style="background:#4caf50;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer;">📋 复制链接</button>' +
               '<button onclick="openRecord(\'' + r.binId + '\')" style="background:#2196f3;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer;">🔗 打开查看</button>' +
               '<button onclick="checkRecordUsed(\'' + r.binId + '\', this)" style="background:#ff9800;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer;">🔄 刷新状态</button>' +
+              '<button onclick="deleteRecord(' + i + ')" style="background:#f44336;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer;">🗑 删除</button>' +
+            '</div>' +
+            '<div style="display:flex;align-items:center;gap:8px;">' +
+              '<input type="text" id="noteInput_' + i + '" value="' + escHtml(r.note || '') + '" placeholder="添加备注..." style="flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;outline:none;" />' +
+              '<button onclick="updateRecordNote(' + i + ', document.getElementById(\'noteInput_' + i + '\').value)" style="background:#9c27b0;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:13px;cursor:pointer;">保存备注</button>' +
             '</div>' +
             '<div id="recordStatus_' + r.binId + '" style="margin-top:8px;font-size:12px;color:#999;"></div>' +
           '</div>';
