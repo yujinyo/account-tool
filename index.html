@@ -40,6 +40,43 @@
       letter-spacing: 1px;
     }
 
+    /* ─── 已使用标记样式 ─────────────────────── */
+    .account-card.used {
+      background: #f8f8f8;
+      border-color: #d0d0d0;
+      opacity: 0.85;
+    }
+
+    .account-card.used .card-num {
+      background: #aaa;
+    }
+
+    .account-card.used .card-num::after {
+      content: ' ✓';
+    }
+
+    .used-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: #e0e0e0;
+      color: #888;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 12px;
+      margin-left: auto;
+    }
+
+    .used-badge.active {
+      background: #4caf50;
+      color: #fff;
+    }
+
+    .used-badge.active::before {
+      content: '✓ ';
+    }
+
     /* ─── 分享横幅 ─────────────────────────── */
     .share-banner {
       background: linear-gradient(135deg, #667eea, #764ba2);
@@ -140,20 +177,35 @@
 
     .stats-bar {
       display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 12px; padding: 0 2px;
+      margin-bottom: 12px; padding: 0 2px; flex-wrap: wrap; gap: 6px;
     }
     .stats-bar span { font-size: 13px; color: #888; }
+    .stats-right {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .used-count {
+      font-size: 12px; color: #aaa; background: #f0f0f0;
+      padding: 3px 10px; border-radius: 12px;
+    }
+    .used-count.has-used { color: #fff; background: #4caf50; }
     .btn-show-all-pw {
       font-size: 13px; color: #4caf50; cursor: pointer; background: none;
       border: none; text-decoration: underline; padding: 4px;
     }
     .btn-show-all-pw:hover { color: #2e7d32; }
+    .btn-reset-used {
+      font-size: 12px; color: #999; cursor: pointer; background: none;
+      border: 1px solid #ddd; border-radius: 12px; padding: 3px 10px;
+      transition: all 0.2s;
+    }
+    .btn-reset-used:hover { color: #f44336; border-color: #f44336; background: #fff0f0; }
 
     /* ─── 账号卡片（移动端主布局） ─────────── */
     .account-card {
-      background: #fff; border: 1px solid #eee; border-radius: 12px;
+      background: #fff; border: 2px solid #eee; border-radius: 14px;
       padding: 16px; margin-bottom: 12px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      transition: all 0.2s;
     }
 
     .card-header {
@@ -164,8 +216,9 @@
 
     .card-num {
       display: inline-flex; align-items: center; justify-content: center;
-      width: 28px; height: 28px; border-radius: 50%;
+      width: 30px; height: 30px; border-radius: 50%;
       background: #4caf50; color: #fff; font-weight: 700; font-size: 14px;
+      flex-shrink: 0;
     }
 
     .card-row {
@@ -176,12 +229,12 @@
 
     .card-label {
       font-size: 12px; color: #aaa; min-width: 40px;
-      padding-top: 2px; font-weight: 500;
+      padding-top: 2px; font-weight: 500; flex-shrink: 0;
     }
 
     .card-value-wrap {
       flex: 1; display: flex; align-items: center; gap: 8px;
-      min-width: 0;
+      min-width: 0; flex-wrap: wrap;
     }
 
     .card-value {
@@ -193,6 +246,13 @@
     .card-value.masked {
       letter-spacing: 3px; color: #bbb; font-size: 16px;
     }
+
+    /* 已使用时卡片变灰+划线 */
+    .account-card.used .card-value { color: #999; text-decoration: line-through; text-decoration-color: #ccc; }
+    .account-card.used .card-value.masked { text-decoration: none; }
+    .account-card.used .card-label { color: #bbb; }
+    .account-card.used .btn-copy-all { background: #aaa; }
+    .account-card.used .btn-copy-all:hover { background: #999; }
 
     .btn-copy {
       background: #f0f9f0; color: #4caf50; border: 1.5px solid #4caf50;
@@ -345,7 +405,11 @@
       <!-- 统计栏 -->
       <div class="stats-bar">
         <span id="statsText">共 0 条账号</span>
-        <button class="btn-show-all-pw" onclick="toggleAllPasswords()">显示/隐藏密码</button>
+        <div class="stats-right">
+          <span class="used-count" id="usedCount">已使用 0 条</span>
+          <button class="btn-reset-used" onclick="resetUsed()">重置标记</button>
+          <button class="btn-show-all-pw" onclick="toggleAllPasswords()">显示/隐藏密码</button>
+        </div>
       </div>
 
       <!-- 移动端卡片列表 -->
@@ -378,6 +442,7 @@
   <script>
     let accounts = [];
     let showPasswords = {};
+    let usedAccounts = {};   // 记录哪些账号已使用 {index: true}
     let allPwVisible = false;
     let isSharedView = false;
 
@@ -388,7 +453,9 @@
         try {
           const encoded = decodeURIComponent(hash.substring(1));
           const jsonStr = atob(encoded);
-          accounts = JSON.parse(jsonStr);
+          const data = JSON.parse(jsonStr);
+          accounts = data.accounts || data;
+          usedAccounts = data.usedAccounts || {};
           isSharedView = true;
           document.getElementById('viewModeBanner').classList.add('active');
           document.getElementById('shareBanner').style.display = 'none';
@@ -407,7 +474,9 @@
         const saved = localStorage.getItem('account_tool_data');
         if (saved) {
           try {
-            accounts = JSON.parse(saved);
+            const savedData = JSON.parse(saved);
+            accounts = savedData.accounts || savedData;
+            usedAccounts = savedData.usedAccounts || {};
             const savedRaw = localStorage.getItem('account_tool_raw');
             if (savedRaw) document.getElementById('rawInput').value = savedRaw;
             renderAll();
@@ -453,6 +522,7 @@
 
       accounts = parsed;
       showPasswords = {};
+      usedAccounts = {};
       saveToLocal();
       renderAll();
       document.getElementById('btnShare').classList.add('active');
@@ -473,7 +543,8 @@
     // ─── 生成分享链接 ───────────────────────────────────────
     function generateShareLink() {
       if (accounts.length === 0) { showToast('请先解析账号数据'); return; }
-      const jsonStr = JSON.stringify(accounts);
+      const shareData = { accounts: accounts, usedAccounts: usedAccounts };
+      const jsonStr = JSON.stringify(shareData);
       const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
       const shareUrl = window.location.origin + window.location.pathname + '#' + encoded;
       document.getElementById('shareLinkInput').value = shareUrl;
@@ -493,6 +564,16 @@
     function renderAll() {
       document.getElementById('statsText').textContent = '共 ' + accounts.length + ' 条账号';
 
+      // 更新已使用统计
+      const usedCount = Object.keys(usedAccounts).filter(k => usedAccounts[k]).length;
+      const usedCountEl = document.getElementById('usedCount');
+      usedCountEl.textContent = '已使用 ' + usedCount + ' 条';
+      if (usedCount > 0) {
+        usedCountEl.classList.add('has-used');
+      } else {
+        usedCountEl.classList.remove('has-used');
+      }
+
       if (accounts.length === 0) {
         document.getElementById('cardList').innerHTML = '<div class="empty-tip">暂无数据<br>请在上方粘贴账号信息</div>';
         document.getElementById('tableBody').innerHTML = '<tr><td colspan="5" class="empty-tip">暂无数据，请在上方粘贴账号信息并点击「解析数据」</td></tr>';
@@ -504,10 +585,14 @@
         const visible = showPasswords[i] || allPwVisible;
         const pwDisplay = visible ? escHtml(item.password) : '••••••••••';
         const eyeIcon = visible ? '🙈' : '👁';
-        return '<div class="account-card">' +
+        const isUsed = usedAccounts[i];
+        const usedClass = isUsed ? ' used' : '';
+        const usedBadge = isUsed ? '<span class="used-badge active">已使用</span>' : '<span class="used-badge">未使用</span>';
+        return '<div class="account-card' + usedClass + '">' +
           '<div class="card-header">' +
             '<span class="card-num">' + (i + 1) + '</span>' +
-            '<button class="btn-copy" onclick="copyText(\'' + escAttr(item.account) + '\', this)">复制账号</button>' +
+            usedBadge +
+            '<button class="btn-copy" onclick="copyText(\'' + escAttr(item.account) + '\', this, ' + i + ')">复制账号</button>' +
           '</div>' +
           '<div class="card-row">' +
             '<span class="card-label">账号</span>' +
@@ -520,14 +605,14 @@
             '<div class="card-value-wrap">' +
               '<span class="card-value ' + (visible ? '' : 'masked') + '">' + pwDisplay + '</span>' +
               '<span class="toggle-pw" onclick="togglePassword(' + i + ')">' + eyeIcon + '</span>' +
-              '<button class="btn-copy" onclick="copyText(\'' + escAttr(item.password) + '\', this)">复制</button>' +
+              '<button class="btn-copy" onclick="copyText(\'' + escAttr(item.password) + '\', this, ' + i + ')">复制</button>' +
             '</div>' +
           '</div>' +
           (item.email ? '<div class="card-row">' +
             '<span class="card-label">邮箱</span>' +
             '<div class="card-value-wrap">' +
               '<span class="card-value">' + escHtml(item.email) + '</span>' +
-              '<button class="btn-copy" onclick="copyText(\'' + escAttr(item.email) + '\', this)">复制</button>' +
+              '<button class="btn-copy" onclick="copyText(\'' + escAttr(item.email) + '\', this, ' + i + ')">复制</button>' +
             '</div>' +
           '</div>' : '') +
           '<button class="btn-copy-all" onclick="copyAll(' + i + ', this)">📋 全部复制（账号----密码----邮箱）</button>' +
@@ -561,7 +646,12 @@
     }
 
     // ─── 复制 ───────────────────────────────────────────────
-    function copyText(text, btn, isLink) {
+    function copyText(text, btn, accountIdx, isLink) {
+      // 标记为已使用
+      if (typeof accountIdx === 'number' && accountIdx >= 0) {
+        usedAccounts[accountIdx] = true;
+        saveToLocal();
+      }
       navigator.clipboard.writeText(text).then(() => {
         showToast(isLink ? '分享链接已复制！' : '已复制: ' + (text.length > 20 ? text.substring(0, 20) + '...' : text));
         if (btn) {
@@ -570,19 +660,24 @@
           btn.classList.add('copied');
           setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
         }
+        // 复制后更新UI
+        setTimeout(() => renderAll(), 50);
       }).catch(() => {
         const ta = document.createElement('textarea');
         ta.value = text; ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
         document.body.appendChild(ta); ta.select();
         document.execCommand('copy'); document.body.removeChild(ta);
         showToast(isLink ? '分享链接已复制！' : '已复制！');
+        setTimeout(() => renderAll(), 50);
       });
     }
 
     function copyAll(idx, btn) {
       const item = accounts[idx];
       const fullText = [item.account, item.password, item.email].filter(Boolean).join('----');
-      copyText(fullText, null, false);
+      usedAccounts[idx] = true;
+      saveToLocal();
+      copyText(fullText, null, idx, false);
       if (btn) {
         const orig = btn.textContent;
         btn.textContent = '已复制✓';
@@ -591,13 +686,24 @@
       }
     }
 
+    function resetUsed() {
+      if (Object.keys(usedAccounts).length === 0) {
+        showToast('暂无已标记的账号'); return;
+      }
+      if (!confirm('确定要重置所有已使用标记吗？')) return;
+      usedAccounts = {};
+      saveToLocal();
+      renderAll();
+      showToast('已重置所有标记');
+    }
+
     // ─── 清空 ───────────────────────────────────────────────
     function clearAll() {
       if (accounts.length === 0 && !document.getElementById('rawInput').value) {
         showToast('已经是空的了'); return;
       }
       if (!confirm('确定要清空所有数据吗？')) return;
-      accounts = []; showPasswords = {};
+      accounts = []; showPasswords = {}; usedAccounts = {};
       document.getElementById('rawInput').value = '';
       document.getElementById('btnShare').classList.remove('active');
       document.getElementById('shareBanner').classList.remove('active');
@@ -610,7 +716,7 @@
 
     function saveToLocal() {
       if (!isSharedView) {
-        localStorage.setItem('account_tool_data', JSON.stringify(accounts));
+        localStorage.setItem('account_tool_data', JSON.stringify({ accounts: accounts, usedAccounts: usedAccounts }));
         localStorage.setItem('account_tool_raw', document.getElementById('rawInput').value);
       }
     }
