@@ -624,7 +624,7 @@
             localStorage.setItem('account_tool_data', JSON.stringify({ accounts, usedAccounts }));
             localStorage.setItem('account_tool_shareId', shareId);
             banner.innerHTML = '☁️ 手动刷新模式 - 点击顶部「🔄 刷新」查看最新使用状态';
-            renderAll(); startPolling(); showToast('已加载 accounts.length + ' 条账号');
+            renderAll(); startPolling(); showToast('已加载 ' + accounts.length + ' 条账号');
           } else {
             banner.innerHTML = '❌ 加载分享数据失败，请检查链接是否正确';
             banner.style.background = '#fff3cd'; banner.style.borderColor = '#ffeeba'; banner.style.color = '#856404';
@@ -647,7 +647,7 @@
           document.querySelector('.btn-parse').style.display = 'none';
           document.querySelector('.btn-clear').style.display = 'none';
           document.querySelector('.share-info').style.display = 'none';
-          renderAll(); showToast('已加载 accounts.length + ' 条账号');
+          renderAll(); showToast('已加载 ' + accounts.length + ' 条账号');
         } catch (e) { console.error('Load hash error:', e); }
       } else {
         const saved = localStorage.getItem('account_tool_data');
