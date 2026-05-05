@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>账号分离一键复制工具</title>
   <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/lib/lz-string.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -224,6 +223,22 @@
       transition: all 0.2s;
     }
     .btn-reset-used:hover { color: #f44336; border-color: #f44336; background: #fff0f0; }
+    .btn-refresh-sync {
+      font-size: 12px; color: #667eea; cursor: pointer; background: none;
+      border: 1px solid #667eea; border-radius: 12px; padding: 3px 10px;
+      transition: all 0.2s; display: none;
+    }
+    .btn-refresh-sync.active { display: inline-block; }
+    .btn-refresh-sync:hover { color: #fff; background: #667eea; }
+    .sync-indicator {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+      background: #ccc; margin-right: 4px; vertical-align: middle;
+    }
+    .sync-indicator.active { background: #4caf50; animation: pulse 2s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
 
     .account-card {
       background: #fff; border: 2px solid #eee; border-radius: 14px;
@@ -400,7 +415,7 @@
 
     <div class="qr-code-wrap" id="qrCodeWrap">
       <h4>📱 扫码分享</h4>
-      <div id="qrCodeCanvas"></div>
+      <div id="qrCodeCanvas" style="display:flex;justify-content:center;"></div>
       <p>用手机扫一扫，直接打开分享链接</p>
     </div>
 
@@ -424,6 +439,8 @@
       <div class="stats-bar">
         <span id="statsText">共 0 条账号</span>
         <div class="stats-right">
+          <span class="sync-indicator" id="syncIndicator"></span>
+          <button class="btn-refresh-sync" id="btnRefreshSync" onclick="manualRefresh()">🔄 刷新</button>
           <span class="used-count" id="usedCount">已使用 0 条</span>
           <button class="btn-reset-used" onclick="resetUsed()">重置标记</button>
           <button class="btn-show-all-pw" onclick="toggleAllPasswords()">显示/隐藏密码</button>
@@ -545,6 +562,9 @@
     // ─── 开始轮询云端状态 ──────────────────────────────────
     function startPolling() {
       if (pollTimer) clearInterval(pollTimer);
+      // 显示同步状态
+      document.getElementById('btnRefreshSync').classList.add('active');
+      document.getElementById('syncIndicator').classList.add('active');
       pollTimer = setInterval(async () => {
         if (!currentBinId) return;
         const data = await readCloudData(currentBinId);
@@ -554,11 +574,31 @@
           usedAccounts = { ...usedAccounts, ...data.usedAccounts };
           const newCount = Object.keys(usedAccounts).filter(k => usedAccounts[k]).length;
           renderAll();
-          if (newCount > oldCount && !isSharedView) {
+          if (newCount > oldCount) {
             showToast('有 ' + (newCount - oldCount) + ' 条账号被使用了！');
           }
         }
-      }, 5000);
+      }, 2000); // 2秒轮询，更快响应
+    }
+
+    // ─── 手动刷新同步 ─────────────────────────────────────
+    async function manualRefresh() {
+      if (!currentBinId) return;
+      showToast('正在刷新...');
+      const data = await readCloudData(currentBinId);
+      if (data && data.usedAccounts) {
+        const oldCount = Object.keys(usedAccounts).filter(k => usedAccounts[k]).length;
+        usedAccounts = { ...usedAccounts, ...data.usedAccounts };
+        const newCount = Object.keys(usedAccounts).filter(k => usedAccounts[k]).length;
+        renderAll();
+        if (newCount > oldCount) {
+          showToast('发现 ' + (newCount - oldCount) + ' 条新使用记录！');
+        } else {
+          showToast('已是最新状态');
+        }
+      } else {
+        showToast('刷新失败，请检查网络');
+      }
     }
 
     // ─── 停止轮询 ─────────────────────────────────────────
@@ -647,8 +687,13 @@
             // 显示按钮
             document.getElementById('btnShare').classList.add('active');
             document.getElementById('btnQR').classList.add('active');
-            if (localStorage.getItem('account_tool_shareId')) {
+            // 检查是否有已创建的分享
+            const savedShareId = localStorage.getItem('account_tool_shareId');
+            if (savedShareId) {
               document.getElementById('btnMyShare').classList.add('active');
+              // 自动开始监听
+              currentBinId = savedShareId;
+              startPolling();
             }
             renderAll();
           } catch(e) {}
@@ -798,7 +843,7 @@
     }
 
     // ═══════════════════════════════════════════════════════
-    //  二维码
+    //  二维码（使用 Google Chart API，无需 JS 库）
     // ═══════════════════════════════════════════════════════
     function toggleQR() {
       const wrap = document.getElementById('qrCodeWrap');
@@ -813,17 +858,12 @@
         return;
       }
 
-      document.getElementById('qrCodeCanvas').innerHTML = '';
+      // 使用 Google Chart API 生成二维码图片
+      const encodedLink = encodeURIComponent(shareLink);
+      const qrUrl = 'https://chart.googleapis.com/chart?cht=qr&chl=' + encodedLink + '&chs=200x200&choe=UTF-8&chld=L|2';
 
-      // 使用 new QRCode() 方式（更兼容）
-      new QRCode(document.getElementById('qrCodeCanvas'), {
-        text: shareLink,
-        width: 200,
-        height: 200,
-        colorDark: '#333333',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.M
-      });
+      document.getElementById('qrCodeCanvas').innerHTML =
+        '<img src="' + qrUrl + '" alt="二维码" style="width:200px;height:200px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);" />';
 
       wrap.classList.add('active');
     }
