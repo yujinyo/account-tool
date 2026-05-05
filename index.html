@@ -593,23 +593,28 @@
       }
     }
 
-    // ─── 读取云端数据 ──────────────────────────────────────
-    async function readCloudData(binId, retries) {
-      retries = retries || 3; // 默认重试3次
+    // ─── 读取云端数据（优化：减少重试，加快速度）───────────
+    async function readCloudData(binId) {
+      const retries = 2; // 减少重试次数
       let lastError = null;
       
       for (let i = 0; i < retries; i++) {
         try {
-          // 添加时间戳防止缓存
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
+          
           const resp = await fetch(JSONBIN_API + '/b/' + binId + '/latest?_=' + Date.now(), {
             method: 'GET',
-            headers: { 'X-Master-Key': JSONBIN_KEY }
+            headers: { 'X-Master-Key': JSONBIN_KEY },
+            signal: controller.signal
           });
+          
+          clearTimeout(timeoutId);
           
           if (!resp.ok) {
             console.error('HTTP error:', resp.status);
             lastError = new Error('HTTP ' + resp.status);
-            if (i < retries - 1) await new Promise(r => setTimeout(r, 1000)); // 等待1秒后重试
+            if (i < retries - 1) await new Promise(r => setTimeout(r, 500)); // 等待0.5秒后重试
             continue;
           }
           
@@ -624,7 +629,7 @@
         } catch (e) {
           console.error('readCloudData error:', e);
           lastError = e;
-          if (i < retries - 1) await new Promise(r => setTimeout(r, 1000)); // 等待1秒后重试
+          if (i < retries - 1) await new Promise(r => setTimeout(r, 500)); // 等待0.5秒后重试
         }
       }
       console.error('readCloudData failed after retries:', lastError);
@@ -653,26 +658,12 @@
       }
     }
 
-    // ─── 开始轮询云端状态 ──────────────────────────────────
+    // ─── 手动刷新同步（移除自动轮询，减少请求）────────────
     function startPolling() {
-      if (pollTimer) clearInterval(pollTimer);
-      // 显示同步状态
+      // 不再自动轮询，只显示刷新按钮让用户手动刷新
       document.getElementById('btnRefreshSync').classList.add('active');
-      document.getElementById('syncIndicator').classList.add('active');
-      pollTimer = setInterval(async () => {
-        if (!currentBinId) return;
-        const data = await readCloudData(currentBinId);
-        if (data && data.usedAccounts) {
-          const oldCount = Object.keys(usedAccounts).filter(k => usedAccounts[k]).length;
-          // 合并云端和本地的 usedAccounts
-          usedAccounts = { ...usedAccounts, ...data.usedAccounts };
-          const newCount = Object.keys(usedAccounts).filter(k => usedAccounts[k]).length;
-          renderAll();
-          if (newCount > oldCount) {
-            showToast('有 ' + (newCount - oldCount) + ' 条账号被使用了！');
-          }
-        }
-      }, 2000); // 2秒轮询，更快响应
+      // 不再自动轮询
+      if (pollTimer) clearInterval(pollTimer);
     }
 
     // ─── 手动刷新同步 ─────────────────────────────────────
@@ -732,15 +723,22 @@
             accounts     = data.accounts || [];
             usedAccounts = data.usedAccounts || {};
 
+            // 保存到本地，下次打开更快
+            localStorage.setItem('account_tool_data', JSON.stringify({
+              accounts: accounts,
+              usedAccounts: usedAccounts
+            }));
+            localStorage.setItem('account_tool_shareId', binId);
+
             // 界面调整为查看模式
-            banner.innerHTML = '☁️ 云端同步模式，已使用状态实时同步中...';
+            banner.innerHTML = '☁️ 手动刷新模式 - 点击顶部「🔄 刷新」查看最新使用状态';
             renderAll();
 
-            // 使用者也轮询，这样多设备之间可以互相同步
+            // 显示刷新按钮（手动刷新）
             startPolling();
-            showToast('已加载 ' + accounts.length + ' 条账号，实时同步中');
+            showToast('已加载 ' + accounts.length + ' 条账号');
           } else {
-            banner.innerHTML = '❌ 加载分享数据失败，请检查链接是否正确或分享是否已过期';
+            banner.innerHTML = '❌ 加载分享数据失败，请检查链接是否正确';
             banner.style.background = '#fff3cd';
             banner.style.borderColor = '#ffeeba';
             banner.style.color = '#856404';
