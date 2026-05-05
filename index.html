@@ -482,7 +482,7 @@
 
     <div class="share-info">
       💡 <strong>使用方法：</strong>粘贴账号 → 解析 → 点击「<strong>分享链接</strong>」或「<strong>二维码</strong>」→ 发送链接/二维码给朋友，他们打开即可一键复制！<br>
-      🔒 <strong>隐私说明：</strong>标记数据保存在云端(JSONBin)，刷新不丢失，分享者可实时查看使用状态。
+      🔒 <strong>隐私说明：</strong>标记数据保存在云端(Firebase)，刷新不丢失，分享者可实时查看使用状态。
     </div>
   </div>
 
@@ -501,423 +501,237 @@
   </div>
 
     <script>
-    // ══════════════════════════════════════════════════════
-    //  JSONBin 配置（用户提供的 API Key）
-    // ══════════════════════════════════════════════════════
-    const JSONBIN_API = 'https://api.jsonbin.io/v3';
-    const JSONBIN_KEY  = '$2a$10$YcuC/l.PRLR9qXlvVmWae.HGMwNkhgxNDx/FNotNyyIip.ujfyujS';
+    const FIREBASE_URL = 'https://account-tool-9f2a5-default-rtdb.firebaseio.com/accounts';
 
-    // ══════════════════════════════════════════════════════
-    //  全局状态
-    // ══════════════════════════════════════════════════════
-    let accounts       = [];
-    let showPasswords  = {};
-    let usedAccounts   = {};   // { index: true }
-    let allPwVisible   = false;
-    let isSharedView   = false;
-    let isCloudShare   = false;
-    let currentGistId  = null;  // GitHub Gist id
-    let pollTimer      = null;
+    let accounts = [];
+    let showPasswords = {};
+    let usedAccounts = {};
+    let allPwVisible = false;
+    let isSharedView = false;
+    let isCloudShare = false;
+    let currentShareId = null;
+    let pollTimer = null;
 
-    // ─── 保存分享记录到 localStorage ───────────────────────
-    function saveShareRecord(binId, accountCount, note) {
+    function saveShareRecord(shareId, accountCount, note) {
       const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
-      records.unshift({
-        binId: binId,
-        accountCount: accountCount,
-        createdAt: Date.now(),
-        usedCount: 0,
-        note: note || ''
-      });
-      // 最多保留 50 条记录
+      records.unshift({ fbId: shareId, accountCount: accountCount, createdAt: Date.now(), usedCount: 0, note: note || '' });
       if (records.length > 50) records.length = 50;
       localStorage.setItem('account_tool_records', JSON.stringify(records));
     }
 
-    // ─── 更新分享记录备注 ───────────────────────────────────
     function updateRecordNote(index, note) {
       const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
-      if (records[index]) {
-        records[index].note = note;
-        localStorage.setItem('account_tool_records', JSON.stringify(records));
-        showToast('备注已保存');
-      }
+      if (records[index]) { records[index].note = note; localStorage.setItem('account_tool_records', JSON.stringify(records)); showToast('备注已保存'); }
     }
 
-    // ─── 删除分享记录 ───────────────────────────────────────
     function deleteRecord(index) {
       if (!confirm('确定要删除这条分享记录吗？')) return;
       const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
-      if (records[index]) {
-        records.splice(index, 1);
-        localStorage.setItem('account_tool_records', JSON.stringify(records));
-        showToast('已删除');
-        showRecords(); // 刷新列表
-      }
+      if (records[index]) { records.splice(index, 1); localStorage.setItem('account_tool_records', JSON.stringify(records)); showToast('已删除'); showRecords(); }
     }
 
-    // ─── 创建云端分享（JSONBin）────────────────────────────
     async function createCloudShare() {
-      const body = JSON.stringify({
-        accounts: accounts,
-        usedAccounts: usedAccounts,
-        createdAt: Date.now()
-      });
+      const allData = accounts.map((acc, i) => ({
+          ...acc,
+          used: !!usedAccounts[i]
+      }));
+      
+      showBanner('☁️ 正在创建云端分享...', '#e3f2fd', '#0d47a1');
+      
       try {
-        const resp = await fetch(JSONBIN_API + '/b', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Master-Key': JSONBIN_KEY
-          },
-          body: body
-        });
-        const result = await resp.json();
-        if (result.metadata && result.metadata.id) {
-          // 保存分享记录
-          saveShareRecord(result.id, accounts.length);
-          return { success: true, binId: result.metadata.id };
-        }
-        throw new Error('创建失败');
+          const res  = await fetch(FIREBASE_URL + '.json', {
+              method  : 'POST',
+              headers : { 'Content-Type': 'application/json' },
+              body    : JSON.stringify({ accounts: allData, createdAt: Date.now() })
+          });
+          const json = await res.json();
+          if (!json.name) throw new Error('No record id returned');
+          
+          currentShareId = json.name;
+          const url    = location.origin + location.pathname + '#fb_' + json.name;
+          await navigator.clipboard.writeText(url);
+          
+          saveShareRecord(json.name, accounts.length);
+          showBanner('✅ 分享链接已复制到剪贴板！', '#d4edda', '#155724');
+          startPolling();
       } catch (e) {
-        console.error('createCloudShare error:', e);
-        return { success: false };
+          showBanner('❌ 创建分享失败: ' + e.message, '#f8d7da', '#721c24');
       }
     }
 
-    // ─── 读取云端数据（GitHub Gist）───────────────────────
-    async function readCloudData(binId) {
+    async function readCloudData(shareId) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
-        
-        const resp = await fetch(GIST_API + '/' + binId + '?' + Date.now(), {
-          method: 'GET',
-          headers: { 'Authorization': 'token ' + GIST_TOKEN },
-          signal: controller.signal
-        });
-        
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const resp = await fetch(FIREBASE_URL + '/' + shareId + '.json', { method: 'GET', headers: { 'Content-Type': 'application/json' }, signal: controller.signal });
         clearTimeout(timeoutId);
-        
-        if (!resp.ok) {
-          console.error('HTTP error:', resp.status);
-          return null;
-        }
-        
+        if (!resp.ok) return null;
         const result = await resp.json();
-        if (result.files && result.files['data.json']) {
-          const content = result.files['data.json'].content;
-          return JSON.parse(content);
-        }
+        if (result && result.accounts) return result;
         return null;
-      } catch (e) {
-        console.error('readCloudData error:', e);
-        return null;
-      }
+      } catch (e) { console.error('readCloudData error:', e); return null; }
     }
 
-    // ─── 更新云端 usedAccounts（GitHub Gist）────────────────
     async function updateCloudUsed() {
-      if (!currentGistId) return;
+      if (!currentShareId) return;
       try {
-        // 先读取当前 Gist 内容
-        const resp = await fetch(GIST_API + '/' + currentGistId, {
-          headers: { 'Authorization': 'token ' + GIST_TOKEN }
-        });
-        const gist = await resp.json();
-        const oldContent = JSON.parse(gist.files['data.json'].content);
-        
-        // 合并 usedAccounts
-        const merged = {
-          accounts: accounts.length > 0 ? accounts : oldContent.accounts,
-          usedAccounts: { ...oldContent.usedAccounts, ...usedAccounts },
-          createdAt: oldContent.createdAt
-        };
-        
-        // 更新 Gist
-        await fetch(GIST_API + '/' + currentGistId, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'token ' + GIST_TOKEN
-          },
-          body: JSON.stringify({
-            files: {
-              'data.json': { content: JSON.stringify(merged) }
-            }
-          })
-        });
-      } catch (e) {
-        console.error('updateCloudUsed error:', e);
-      }
+        const allData = accounts.map((acc, i) => ({
+            ...acc,
+            used: !!usedAccounts[i]
+        }));
+        await fetch(FIREBASE_URL + '/' + currentShareId + '.json', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accounts: allData }) });
+      } catch (e) { console.error('updateCloudUsed error:', e); }
     }
 
-    // ─── 手动刷新同步（移除自动轮询，减少请求）────────────
-    function startPolling() {
-      // 不再自动轮询，只显示刷新按钮让用户手动刷新
-      document.getElementById('btnRefreshSync').classList.add('active');
-      // 不再自动轮询
-      if (pollTimer) clearInterval(pollTimer);
-    }
+    function startPolling() { document.getElementById('btnRefreshSync').classList.add('active'); if (pollTimer) clearInterval(pollTimer); }
 
-    // ─── 手动刷新同步 ───────────────────────────────────────
     async function manualRefresh() {
-      if (!currentGistId) return;
+      if (!currentShareId) return;
       showToast('正在刷新...');
-      const data = await readCloudData(currentGistId);
-      if (data && data.usedAccounts) {
+      const data = await readCloudData(currentShareId);
+      if (data && data.accounts) {
+        const cloudUsed = {};
+        data.accounts.forEach((acc, i) => { if (acc.used) cloudUsed[i] = true; });
         const oldCount = Object.keys(usedAccounts).filter(k => usedAccounts[k]).length;
-        usedAccounts = { ...usedAccounts, ...data.usedAccounts };
+        usedAccounts = { ...usedAccounts, ...cloudUsed };
         const newCount = Object.keys(usedAccounts).filter(k => usedAccounts[k]).length;
         renderAll();
-        if (newCount > oldCount) {
-          showToast('发现 ' + (newCount - oldCount) + ' 条新使用记录！');
-        } else {
-          showToast('已是最新状态');
-        }
-      } else {
-        showToast('刷新失败，请检查网络');
-      }
+        showToast(newCount > oldCount ? '发现 (newCount - oldCount) + ' 条新使用记录！' : '已是最新状态');
+      } else { showToast('刷新失败，请检查网络'); }
     }
 
-    // ─── 停止轮询 ───────────────────────────────────────────
-    function stopPolling() {
-      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-    }
+    function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
 
-    // ══════════════════════════════════════════════════════
-    //  初始化：页面加载时恢复数据
-    // ══════════════════════════════════════════════════════
     window.addEventListener('DOMContentLoaded', async () => {
       const hash = window.location.hash;
       if (hash && hash.length > 1) {
         const hashContent = hash.substring(1);
-
-        // 检查是否为云端分享链接（格式：jb_<binId>）
-        if (hashContent.startsWith('jb_')) {
-          const binId = hashContent.substring(3);
-          currentGistId = binId;
-          isCloudShare = true;
-          isSharedView = true;
-
-          // 显示加载中状态
+        if (hashContent.startsWith('fb_')) {
+          const shareId = hashContent.substring(3);
+          currentShareId = shareId; isCloudShare = true; isSharedView = true;
           const banner = document.getElementById('viewModeBanner');
-          banner.innerHTML = '⏳ 正在加载分享数据...';
-          banner.classList.add('active', 'cloud');
+          banner.innerHTML = '⏳ 正在加载分享数据...'; banner.classList.add('active', 'cloud');
           document.getElementById('shareBanner').style.display = 'none';
-          document.getElementById('rawInput').style.display   = 'none';
+          document.getElementById('rawInput').style.display = 'none';
           document.querySelector('.sep-setting').style.display = 'none';
-          document.querySelector('.hint').style.display        = 'none';
-          document.querySelector('.btn-parse').style.display  = 'none';
-          document.querySelector('.btn-clear').style.display  = 'none';
+          document.querySelector('.hint').style.display = 'none';
+          document.querySelector('.btn-parse').style.display = 'none';
+          document.querySelector('.btn-clear').style.display = 'none';
           document.querySelector('.share-info').style.display = 'none';
-
-          const data = await readCloudData(binId, 3);
+          const data = await readCloudData(shareId);
           if (data && data.accounts && data.accounts.length > 0) {
-            accounts     = data.accounts || [];
-            usedAccounts = data.usedAccounts || {};
-
-            // 保存到本地，下次打开更快
-            localStorage.setItem('account_tool_data', JSON.stringify({
-              accounts: accounts,
-              usedAccounts: usedAccounts
-            }));
-            localStorage.setItem('account_tool_shareId', binId);
-
-            // 界面调整为查看模式
+            accounts = data.accounts || []; usedAccounts = data.usedAccounts || {};
+            localStorage.setItem('account_tool_data', JSON.stringify({ accounts, usedAccounts }));
+            localStorage.setItem('account_tool_shareId', shareId);
             banner.innerHTML = '☁️ 手动刷新模式 - 点击顶部「🔄 刷新」查看最新使用状态';
-            renderAll();
-
-            // 显示刷新按钮（手动刷新）
-            startPolling();
-            showToast('已加载 ' + accounts.length + ' 条账号');
+            renderAll(); startPolling(); showToast('已加载 accounts.length + ' 条账号');
           } else {
             banner.innerHTML = '❌ 加载分享数据失败，请检查链接是否正确';
-            banner.style.background = '#fff3cd';
-            banner.style.borderColor = '#ffeeba';
-            banner.style.color = '#856404';
-            // 显示提示信息
+            banner.style.background = '#fff3cd'; banner.style.borderColor = '#ffeeba'; banner.style.color = '#856404';
             document.getElementById('cardList').innerHTML = '<div class="empty-tip">加载失败<br>可能的原因：<br>• 链接已过期或被删除<br>• 网络连接问题<br>• 链接格式不正确</div>';
           }
           return;
         }
-
-        // 旧版：本地压缩 / Base64 链接
         try {
           let jsonStr = '';
           try { jsonStr = LZString.decompressFromEncodedURIComponent(hashContent); } catch(e) {}
-          if (!jsonStr) {
-            try { jsonStr = decodeURIComponent(atob(hashContent)); } catch(e) {}
-          }
+          if (!jsonStr) { try { jsonStr = decodeURIComponent(atob(hashContent)); } catch(e) {} }
           if (!jsonStr) return;
           const data = JSON.parse(jsonStr);
-          accounts     = data.accounts || data;
-          usedAccounts = data.usedAccounts || {};
-          isSharedView = true;
-
+          accounts = data.accounts || data; usedAccounts = data.usedAccounts || {}; isSharedView = true;
           document.getElementById('viewModeBanner').classList.add('active');
-          document.getElementById('shareBanner').style.display   = 'none';
-          document.getElementById('rawInput').style.display     = 'none';
-          document.querySelector('.sep-setting').style.display   = 'none';
-          document.querySelector('.hint').style.display          = 'none';
-          document.querySelector('.btn-parse').style.display     = 'none';
-          document.querySelector('.btn-clear').style.display     = 'none';
-          document.querySelector('.share-info').style.display    = 'none';
-          renderAll();
-          showToast('已加载 ' + accounts.length + ' 条账号');
-        } catch (e) {
-          console.error('Load hash error:', e);
-        }
+          document.getElementById('shareBanner').style.display = 'none';
+          document.getElementById('rawInput').style.display = 'none';
+          document.querySelector('.sep-setting').style.display = 'none';
+          document.querySelector('.hint').style.display = 'none';
+          document.querySelector('.btn-parse').style.display = 'none';
+          document.querySelector('.btn-clear').style.display = 'none';
+          document.querySelector('.share-info').style.display = 'none';
+          renderAll(); showToast('已加载 accounts.length + ' 条账号');
+        } catch (e) { console.error('Load hash error:', e); }
       } else {
-        // 正常模式：从 localStorage 恢复
         const saved = localStorage.getItem('account_tool_data');
         if (saved) {
           try {
             const savedData = JSON.parse(saved);
-            accounts     = savedData.accounts || savedData;
-            usedAccounts = savedData.usedAccounts || {};
+            accounts = savedData.accounts || savedData; usedAccounts = savedData.usedAccounts || {};
             const savedRaw = localStorage.getItem('account_tool_raw');
             if (savedRaw) document.getElementById('rawInput').value = savedRaw;
-            // 显示按钮
             document.getElementById('btnShare').classList.add('active');
             document.getElementById('btnQR').classList.add('active');
-            // 检查是否有已创建的分享
             const savedShareId = localStorage.getItem('account_tool_shareId');
-            if (savedShareId) {
-              document.getElementById('btnMyShare').classList.add('active');
-              currentGistId = savedShareId;
-              startPolling();
-            }
-            // 显示分享记录按钮（如果有记录）
+            if (savedShareId) { document.getElementById('btnMyShare').classList.add('active'); currentShareId = savedShareId; startPolling(); }
             const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
-            if (records.length > 0) {
-              document.getElementById('btnRecords').classList.add('active');
-            }
+            if (records.length > 0) document.getElementById('btnRecords').classList.add('active');
             renderAll();
           } catch(e) {}
         } else {
-          // 即使没有账号数据，也检查是否有分享记录
           const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
-          if (records.length > 0) {
-            document.getElementById('btnRecords').classList.add('active');
-          }
+          if (records.length > 0) document.getElementById('btnRecords').classList.add('active');
         }
       }
     });
 
-    // ══════════════════════════════════════════════════════
-    //  解析数据
-    // ══════════════════════════════════════════════════════
     function parseData() {
       const raw = document.getElementById('rawInput').value.trim();
       if (!raw) { showToast('请先输入账号数据'); return; }
-
       const sepRaw = document.getElementById('sepInput').value || '----';
-      const seps  = sepRaw.split('|').map(s => s.trim()).filter(Boolean);
+      const seps = sepRaw.split('|').map(s => s.trim()).filter(Boolean);
       const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
       const parsed = [];
-
       for (const line of lines) {
         let parts = null;
         for (const sep of seps) {
           if (line.includes(sep)) {
-            const idx1  = line.indexOf(sep);
-            const rest  = line.substring(idx1 + sep.length);
-            const idx2  = rest.indexOf(sep);
-            if (idx2 !== -1) {
-              parts = [
-                line.substring(0, idx1).trim(),
-                rest.substring(0, idx2).trim(),
-                rest.substring(idx2 + sep.length).trim()
-              ];
-            } else {
-              parts = [line.substring(0, idx1).trim(), rest.trim(), ''];
-            }
+            const idx1 = line.indexOf(sep);
+            const rest = line.substring(idx1 + sep.length);
+            const idx2 = rest.indexOf(sep);
+            if (idx2 !== -1) { parts = [line.substring(0, idx1).trim(), rest.substring(0, idx2).trim(), rest.substring(idx2 + sep.length).trim()]; }
+            else { parts = [line.substring(0, idx1).trim(), rest.trim(), '']; }
             break;
           }
         }
-        if (parts) {
-          parsed.push({ account: parts[0], password: parts[1], email: parts[2] });
-        } else {
-          const auto = autoSplit(line);
-          if (auto) parsed.push(auto);
-        }
+        if (parts) parsed.push({ account: parts[0], password: parts[1], email: parts[2] });
+        else { const auto = autoSplit(line); if (auto) parsed.push(auto); }
       }
-
       if (parsed.length === 0) { showToast('未能识别有效账号，请检查分隔符'); return; }
-
-      accounts      = parsed;
-      showPasswords = {};
-      usedAccounts  = {};
-      saveToLocal();
-      renderAll();
+      accounts = parsed; showPasswords = {}; usedAccounts = {}; saveToLocal(); renderAll();
       document.getElementById('btnShare').classList.add('active');
       document.getElementById('btnQR').classList.add('active');
-      // 显示分享记录按钮
       const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
-      if (records.length > 0) {
-        document.getElementById('btnRecords').classList.add('active');
-      }
-      showToast('解析成功 ' + parsed.length + ' 条账号，可分享！');
+      if (records.length > 0) document.getElementById('btnRecords').classList.add('active');
+      showToast('解析成功 parsed.length + ' 条账号，可分享！');
     }
 
     function autoSplit(line) {
       const delimiters = ['----', '---', '--', '|', ':', '\t'];
-      for (const d of delimiters) {
-        if (line.includes(d)) {
-          const parts = line.split(d).map(s => s.trim());
-          if (parts.length >= 2) return { account: parts[0], password: parts[1], email: parts[2] || '' };
-        }
-      }
+      for (const d of delimiters) { if (line.includes(d)) { const parts = line.split(d).map(s => s.trim()); if (parts.length >= 2) return { account: parts[0], password: parts[1], email: parts[2] || '' }; } }
       return null;
     }
 
-    // ══════════════════════════════════════════════════════
-    //  生成分享链接（快速响应版）
-    // ══════════════════════════════════════════════════════
     async function generateShareLink() {
       if (accounts.length === 0) { showToast('请先解析账号数据'); return; }
-
-      // 1. 立即生成本地压缩链接（无需等待云端）
       const shareData = { accounts: accounts };
-      const jsonStr  = JSON.stringify(shareData);
-      let encoded    = '';
-      try {
-        encoded = LZString.compressToEncodedURIComponent(jsonStr);
-      } catch(e) {
-        encoded = btoa(unescape(encodeURIComponent(jsonStr)));
-      }
-      const localUrl = window.location.origin + window.location.pathname + '#' + encoded;
+      const jsonStr = JSON.stringify(shareData);
+      let encoded = '';
+      try { encoded = LZString.compressToEncodedURIComponent(jsonStr); } catch(e) { encoded = btoa(unescape(encodeURIComponent(jsonStr))); }
+      const localUrl = window.location.origin + window.location.pathname + '#encoded;
       showShareSuccess(localUrl);
       showToast('链接已生成，正在上传到云端同步...');
-
-      // 2. 后台上传到云端（不阻塞UI）
       (async () => {
         const cloudResult = await createCloudShare();
         if (cloudResult.success) {
-          currentGistId = cloudResult.binId;
-          isCloudShare = true;
-          isSharedView = false;
-
-          localStorage.setItem('account_tool_shareId', currentGistId);
+          currentShareId = cloudResult.fbId; isCloudShare = true; isSharedView = false;
+          localStorage.setItem('account_tool_shareId', currentShareId);
           document.getElementById('btnMyShare').classList.add('active');
-
-          // 更新链接显示为云端版本
-          const cloudUrl = window.location.origin + window.location.pathname + '#jb_' + currentGistId;
+          const cloudUrl = window.location.origin + window.location.pathname + '#fb_' + currentShareId;
           document.getElementById('shareLinkInput').value = cloudUrl;
           document.getElementById('shareLinkCopy').value = cloudUrl;
-
-          // 再次复制云端链接
           copyShareLink();
-
           startPolling();
-          showToast('✅ 云端同步已就绪！其他人使用时你会看到标记');
-
-          // 通知用户（如果用户还在页面上）
+          showToast('✅ 云端同步已就绪！');
           document.getElementById('btnRecords').classList.add('active');
-        } else {
-          showToast('⚠️ 云端上传失败，但本地链接仍可使用');
-        }
+        } else { showToast('⚠️ 云端上传失败，但本地链接仍可使用'); }
       })();
     }
 
@@ -935,223 +749,97 @@
       copyText(link, null, null, true);
     }
 
-    // ─── 显示"我的分享" ───────────────────────────────────
     function showMyShare() {
       const shareId = localStorage.getItem('account_tool_shareId');
-      if (!shareId) {
-        showToast('没有找到已分享的记录，请先生成分享链接');
-        return;
-      }
-      const shareUrl = window.location.origin + window.location.pathname + '#jb_' + shareId;
+      if (!shareId) { showToast('没有找到已分享的记录，请先生成分享链接'); return; }
+      const shareUrl = window.location.origin + window.location.pathname + '#fb_shareId;
       document.getElementById('shareLinkInput').value = shareUrl;
       document.getElementById('shareLinkCopy').value = shareUrl;
       document.getElementById('shareBanner').classList.add('active');
       document.getElementById('shareSuccess').classList.add('active');
-
-      // 如果当前没有轮询，开始轮询
-      if (!pollTimer && shareId) {
-        currentGistId = shareId;
-        startPolling();
-        showToast('已开始监听分享状态');
-      }
+      if (!pollTimer && shareId) { currentShareId = shareId; startPolling(); showToast('已开始监听分享状态'); }
     }
 
-    // ══════════════════════════════════════════════════════
-    //  二维码（使用 goqr.me API，国内可访问）
-    // ══════════════════════════════════════════════════════
     function toggleQR() {
       const wrap = document.getElementById('qrCodeWrap');
-      if (wrap.classList.contains('active')) {
-        wrap.classList.remove('active');
-        return;
-      }
-
+      if (wrap.classList.contains('active')) { wrap.classList.remove('active'); return; }
       const shareLink = document.getElementById('shareLinkInput').value;
-      if (!shareLink) {
-        showToast('请先生成分享链接');
-        return;
-      }
-
-      // 使用 goqr.me API（国内可访问）
-      const encodedLink = encodeURIComponent(shareLink);
-      const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodedLink;
-
-      document.getElementById('qrCodeCanvas').innerHTML =
-        '<img src="' + qrUrl + '" alt="二维码" style="width:200px;height:200px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);" onerror="this.onerror=null;this.src=\'\';this.parentElement.innerHTML=\'<div style=padding:20px;color:#999;font-size:14px>二维码加载失败<br>请复制链接手动分享</div>\';" />';
-
+      if (!shareLink) { showToast('请先生成分享链接'); return; }
+      const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=encodeURIComponent(shareLink);
+      document.getElementById('qrCodeCanvas').innerHTML = '<img src="qrUrl + '" alt="二维码" style="width:200px;height:200px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);" onerror="this.onerror=null;this.src=\'\';this.parentElement.innerHTML=\'<div style=padding:20px;color:#999;font-size:14px>二维码加载失败</div>\';" />';
       wrap.classList.add('active');
     }
 
-    // ══════════════════════════════════════════════════════
-    //  渲染
-    // ══════════════════════════════════════════════════════
     function renderAll() {
-      document.getElementById('statsText').textContent = '共 ' + accounts.length + ' 条账号';
-
+      document.getElementById('statsText').textContent = '共 accounts.length + ' 条账号';
       const usedCount = Object.keys(usedAccounts).filter(k => usedAccounts[k]).length;
       const usedCountEl = document.getElementById('usedCount');
-      usedCountEl.textContent = '已使用 ' + usedCount + ' 条';
-      if (usedCount > 0) {
-        usedCountEl.classList.add('has-used');
-      } else {
-        usedCountEl.classList.remove('has-used');
-      }
-
-      if (accounts.length === 0) {
-        document.getElementById('cardList').innerHTML   = '<div class="empty-tip">暂无数据<br>请在上方粘贴账号信息</div>';
-        document.getElementById('tableBody').innerHTML    = '<tr><td colspan="5" class="empty-tip">暂无数据，请在上方粘贴账号信息并点击「解析数据」</td></tr>';
-        return;
-      }
-
-      // ─── 手机版卡片 ───────────────────────────────────────
+      usedCountEl.textContent = '已使用 usedCount + ' 条';
+      usedCountEl.classList.toggle('has-used', usedCount > 0);
+      if (accounts.length === 0) { document.getElementById('cardList').innerHTML = '<div class="empty-tip">暂无数据<br>请在上方粘贴账号信息</div>'; document.getElementById('tableBody').innerHTML = '<tr><td colspan="5" class="empty-tip">暂无数据</td></tr>'; return; }
       document.getElementById('cardList').innerHTML = accounts.map((item, i) => {
-        const visible  = showPasswords[i] || allPwVisible;
+        const visible = showPasswords[i] || allPwVisible;
         const pwDisplay = visible ? escHtml(item.password) : '••••••••••';
         const eyeIcon = visible ? '🙈' : '👁';
-        const isUsed  = usedAccounts[i];
-        const usedClass  = isUsed ? ' used' : '';
-        const usedBadge = isUsed
-          ? '<span class="used-badge active">已使用</span>'
-          : '<span class="used-badge">未使用</span>';
-        return '<div class="account-card' + usedClass + '">' +
-          '<div class="card-header">' +
-            '<span class="card-num">' + (i + 1) + '</span>' +
-            usedBadge +
-            '<button class="btn-copy" onclick="copyText(\'' + escAttr(item.account) + '\', this, ' + i + ')">复制账号</button>' +
-          '</div>' +
-          '<div class="card-row">' +
-            '<span class="card-label">账号</span>' +
-            '<div class="card-value-wrap">' +
-              '<span class="card-value">' + escHtml(item.account) + '</span>' +
-            '</div>' +
-          '</div>' +
-          '<div class="card-row">' +
-            '<span class="card-label">密码</span>' +
-            '<div class="card-value-wrap">' +
-              '<span class="card-value ' + (visible ? '' : 'masked') + '">' + pwDisplay + '</span>' +
-              '<span class="toggle-pw" onclick="togglePassword(' + i + ')">' + eyeIcon + '</span>' +
-              '<button class="btn-copy" onclick="copyText(\'' + escAttr(item.password) + '\', this, ' + i + ')">复制</button>' +
-            '</div>' +
-          '</div>' +
-          (item.email ? '<div class="card-row">' +
-            '<span class="card-label">邮箱</span>' +
-            '<div class="card-value-wrap">' +
-              '<span class="card-value">' + escHtml(item.email) + '</span>' +
-              '<button class="btn-copy" onclick="copyText(\'' + escAttr(item.email) + '\', this, ' + i + ')">复制</button>' +
-            '</div>' +
-          '</div>' : '') +
-          '<button class="btn-copy-all" onclick="copyAll(' + i + ', this)">📋 全部复制（账号----密码----邮箱）</button>' +
-        '</div>';
+        const isUsed = usedAccounts[i];
+        const usedClass = isUsed ? ' used' : '';
+        const usedBadge = isUsed ? '<span class="used-badge active">已使用</span>' : '<span class="used-badge">未使用</span>';
+        return '<div class="account-cardusedClass + '">' +
+          '<div class="card-header"><span class="card-num">(i + 1) + '</span>usedBadge + '<button class="btn-copy" onclick="copyText(\'escAttr(item.account) + '\', this, i + ')">复制账号</button></div>' +
+          '<div class="card-row"><span class="card-label">账号</span><div class="card-value-wrap"><span class="card-value">escHtml(item.account) + '</span></div></div>' +
+          '<div class="card-row"><span class="card-label">密码</span><div class="card-value-wrap"><span class="card-value (visible ? '' : 'masked') + '">pwDisplay + '</span><span class="toggle-pw" onclick="togglePassword(i + ')">eyeIcon + '</span><button class="btn-copy" onclick="copyText(\'escAttr(item.password) + '\', this, i + ')">复制</button></div></div>' +
+          (item.email ? '<div class="card-row"><span class="card-label">邮箱</span><div class="card-value-wrap"><span class="card-value">escHtml(item.email) + '</span><button class="btn-copy" onclick="copyText(\'escAttr(item.email) + '\', this, i + ')">复制</button></div></div>' : '') +
+          '<button class="btn-copy-all" onclick="copyAll(i + ', this)">📋 全部复制</button></div>';
       }).join('');
-
-      // ─── 桌面版表格 ───────────────────────────────────────
       document.getElementById('tableBody').innerHTML = accounts.map((item, i) => {
-        const visible   = showPasswords[i] || allPwVisible;
+        const visible = showPasswords[i] || allPwVisible;
         const pwDisplay = visible ? escHtml(item.password) : '••••••••••';
-        const eyeIcon   = visible ? '🙈' : '👁';
-        const isUsed    = usedAccounts[i];
-        const usedClass  = isUsed ? ' used-row' : '';
-        return '<tr class="' + usedClass + '">' +
-          '<td class="num">' + (i + 1) + '</td>' +
-          '<td><div class="cell-inner"><span class="cell-value">' + escHtml(item.account) + '</span><button class="btn-copy-small" onclick="copyText(\'' + escAttr(item.account) + '\', this)">复制</button></div></td>' +
-          '<td><div class="cell-inner"><span class="cell-value ' + (visible ? '' : 'masked') + '">' + pwDisplay + '</span><span class="toggle-pw" onclick="togglePassword(' + i + ')">' + eyeIcon + '</span><button class="btn-copy-small" onclick="copyText(\'' + escAttr(item.password) + '\', this)">复制</button></div></td>' +
-          '<td><div class="cell-inner"><span class="cell-value">' + escHtml(item.email) + '</span>' + (item.email ? '<button class="btn-copy-small" onclick="copyText(\'' + escAttr(item.email) + '\', this)">复制</button>' : '') + '</div></td>' +
-          '<td style="text-align:right"><button class="btn-copy-all' + (isUsed ? '' : '') + '" onclick="copyAll(' + i + ', this)">' + (isUsed ? '✓ 已使用' : '全复制') + '</button></td>' +
-        '</tr>';
+        const eyeIcon = visible ? '🙈' : '👁';
+        const isUsed = usedAccounts[i];
+        const usedClass = isUsed ? ' used-row' : '';
+        return '<tr class="usedClass + '">' +
+          '<td class="num">(i + 1) + '</td>' +
+          '<td><div class="cell-inner"><span class="cell-value">escHtml(item.account) + '</span><button class="btn-copy-small" onclick="copyText(\'escAttr(item.account) + '\', this)">复制</button></div></td>' +
+          '<td><div class="cell-inner"><span class="cell-value (visible ? '' : 'masked') + '">pwDisplay + '</span><span class="toggle-pw" onclick="togglePassword(i + ')">eyeIcon + '</span><button class="btn-copy-small" onclick="copyText(\'escAttr(item.password) + '\', this)">复制</button></div></td>' +
+          '<td><div class="cell-inner"><span class="cell-value">escHtml(item.email) + '</span>(item.email ? '<button class="btn-copy-small" onclick="copyText(\'escAttr(item.email) + '\', this)">复制</button>' : '') + '</div></td>' +
+          '<td style="text-align:right"><button class="btn-copy-all" onclick="copyAll(i + ', this)">(isUsed ? '✓ 已使用' : '全复制') + '</button></td></tr>';
       }).join('');
     }
 
-    function togglePassword(idx) {
-      showPasswords[idx] = !showPasswords[idx];
-      renderAll();
-    }
+    function togglePassword(idx) { showPasswords[idx] = !showPasswords[idx]; renderAll(); }
+    function toggleAllPasswords() { allPwVisible = !allPwVisible; showPasswords = {}; renderAll(); }
 
-    function toggleAllPasswords() {
-      allPwVisible = !allPwVisible;
-      showPasswords = {};
-      renderAll();
-    }
-
-    // ══════════════════════════════════════════════════════
-    //  复制
-    // ══════════════════════════════════════════════════════
     function copyText(text, btn, accountIdx, isLink) {
-      if (typeof accountIdx === 'number' && accountIdx >= 0) {
-        usedAccounts[accountIdx] = true;
-        saveToLocal();
-        // 如果是在云端分享模式下，同步到云端
-        if (isCloudShare || (isSharedView && currentGistId)) {
-          updateCloudUsed();
-        }
-      }
+      if (typeof accountIdx === 'number' && accountIdx >= 0) { usedAccounts[accountIdx] = true; saveToLocal(); if (isCloudShare || (isSharedView && currentShareId)) updateCloudUsed(); }
       navigator.clipboard.writeText(text).then(() => {
-        showToast(isLink ? '分享链接已复制！' : '已复制: ' + (text.length > 20 ? text.substring(0, 20) + '...' : text));
-        if (btn) {
-          const orig = btn.textContent;
-          btn.textContent = '已复制✓';
-          btn.classList.add('copied');
-          setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
-        }
+        showToast(isLink ? '分享链接已复制！' : '已复制: (text.length > 20 ? text.substring(0, 20) + '...' : text));
+        if (btn) { const orig = btn.textContent; btn.textContent = '已复制✓'; btn.classList.add('copied'); setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500); }
         setTimeout(() => renderAll(), 50);
       }).catch(() => {
-        // 降级方案
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-        showToast(isLink ? '分享链接已复制！' : '已复制！');
-        setTimeout(() => renderAll(), 50);
+        const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+        showToast(isLink ? '分享链接已复制！' : '已复制！'); setTimeout(() => renderAll(), 50);
       });
     }
 
     function copyAll(idx, btn) {
       const item = accounts[idx];
       const fullText = [item.account, item.password, item.email].filter(Boolean).join('----');
-      usedAccounts[idx] = true;
-      saveToLocal();
-      if (isCloudShare || (isSharedView && currentGistId)) {
-        updateCloudUsed();
-      }
+      usedAccounts[idx] = true; saveToLocal();
+      if (isCloudShare || (isSharedView && currentShareId)) updateCloudUsed();
       copyText(fullText, null, idx, false);
-      if (btn) {
-        const orig = btn.textContent;
-        btn.textContent = '已复制✓';
-        btn.classList.add('copied');
-        setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
-      }
+      if (btn) { const orig = btn.textContent; btn.textContent = '已复制✓'; btn.classList.add('copied'); setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500); }
     }
 
     function resetUsed() {
-      if (Object.keys(usedAccounts).length === 0) {
-        showToast('暂无已标记的账号'); return;
-      }
+      if (Object.keys(usedAccounts).length === 0) { showToast('暂无已标记的账号'); return; }
       if (!confirm('确定要重置所有已使用标记吗？')) return;
-      usedAccounts = {};
-      if (currentGistId) {
-        updateCloudUsed();
-      }
-      saveToLocal();
-      renderAll();
-      showToast('已重置所有标记');
+      usedAccounts = {}; if (currentShareId) updateCloudUsed(); saveToLocal(); renderAll(); showToast('已重置所有标记');
     }
 
-    // ══════════════════════════════════════════════════════
-    //  清空
-    // ══════════════════════════════════════════════════════
     function clearAll() {
-      if (accounts.length === 0 && !document.getElementById('rawInput').value) {
-        showToast('已经是空的了'); return;
-      }
+      if (accounts.length === 0 && !document.getElementById('rawInput').value) { showToast('已经是空的了'); return; }
       if (!confirm('确定要清空所有数据吗？')) return;
-      accounts      = [];
-      showPasswords = {};
-      usedAccounts  = {};
-      currentGistId  = null;
-      isCloudShare  = false;
-      stopPolling();
+      accounts = []; showPasswords = {}; usedAccounts = {}; currentShareId = null; isCloudShare = false; stopPolling();
       document.getElementById('rawInput').value = '';
       document.getElementById('btnShare').classList.remove('active');
       document.getElementById('btnQR').classList.remove('active');
@@ -1162,140 +850,74 @@
       localStorage.removeItem('account_tool_data');
       localStorage.removeItem('account_tool_raw');
       localStorage.removeItem('account_tool_shareId');
-      renderAll();
-      showToast('已清空');
+      renderAll(); showToast('已清空');
     }
 
-    // ══════════════════════════════════════════════════════
-    //  本地保存 / 读取
-    // ══════════════════════════════════════════════════════
-    function saveToLocal() {
-      localStorage.setItem('account_tool_data', JSON.stringify({
-        accounts: accounts,
-        usedAccounts: usedAccounts
-      }));
-      localStorage.setItem('account_tool_raw', document.getElementById('rawInput').value);
-    }
-
-    function escHtml(str) {
-      if (!str) return '';
-      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
-    function escAttr(str) {
-      if (!str) return '';
-      return str.replace(/'/g, "\\'").replace(/\\/g, "\\\\");
-    }
-
+    function saveToLocal() { localStorage.setItem('account_tool_data', JSON.stringify({ accounts, usedAccounts })); localStorage.setItem('account_tool_raw', document.getElementById('rawInput').value); }
+    function escHtml(str) { if (!str) return ''; return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    function escAttr(str) { if (!str) return ''; return str.replace(/'/g, "\\'").replace(/\\/g, "\\\\"); }
     let toastTimer = null;
-    function showToast(msg) {
-      const el = document.getElementById('toast');
-      el.textContent = msg;
-      el.classList.add('show');
-      if (toastTimer) clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
-    }
+    function showToast(msg) { const el = document.getElementById('toast'); el.textContent = msg; el.classList.add('show'); if (toastTimer) clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 2200); }
 
-    // ══════════════════════════════════════════════════════
-    //  分享记录弹窗
-    // ══════════════════════════════════════════════════════
     async function showRecords() {
       const modal = document.getElementById('recordsModal');
-      const list  = document.getElementById('recordsList');
+      const list = document.getElementById('recordsList');
       const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
-
-      if (records.length === 0) {
-        list.innerHTML = '<div style="text-align:center;color:#999;padding:40px 0;font-size:14px;">暂无分享记录<br>快去分享你的第一条账号吧！</div>';
-      } else {
-        // 为每个记录获取最新使用状态
+      if (records.length === 0) { list.innerHTML = '<div style="text-align:center;color:#999;padding:40px 0;font-size:14px;">暂无分享记录</div>'; }
+      else {
         let html = '';
         for (let i = 0; i < records.length; i++) {
           const r = records[i];
-          const timeStr  = new Date(r.createdAt).toLocaleString('zh-CN');
-          const noteDisplay = r.note ? '<span style="font-size:12px;color:#9c27b0;background:#f3e5f5;padding:2px 8px;border-radius:8px;margin-left:8px;">📝 ' + escHtml(r.note) + '</span>' : '';
+          const timeStr = new Date(r.createdAt).toLocaleString('zh-CN');
+          const noteDisplay = r.note ? '<span style="font-size:12px;color:#9c27b0;background:#f3e5f5;padding:2px 8px;border-radius:8px;margin-left:8px;">📝 escHtml(r.note) + '</span>' : '';
           html += '<div style="border:1px solid #eee;border-radius:12px;padding:14px;margin-bottom:12px;background:#fafafa;">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">' +
-              '<span style="font-size:13px;color:#999;">' + timeStr + '</span>' +
+              '<span style="font-size:13px;color:#999;">timeStr + '</span>' +
               '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
-                '<span style="font-size:12px;color:#666;background:#e8f5e9;padding:2px 8px;border-radius:10px;">共 ' + r.accountCount + ' 条</span>' +
-                noteDisplay +
-              '</div>' +
-            '</div>' +
+                '<span style="font-size:12px;color:#666;background:#e8f5e9;padding:2px 8px;border-radius:10px;">共 r.accountCount + ' 条</span>noteDisplay +
+              '</div></div>' +
             '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">' +
-              '<button onclick="copyRecordLink(\'' + r.binId + '\')" style="background:#4caf50;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer;">📋 复制链接</button>' +
-              '<button onclick="openRecord(\'' + r.binId + '\')" style="background:#2196f3;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer;">🔗 打开查看</button>' +
-              '<button onclick="checkRecordUsed(\'' + r.binId + '\', this)" style="background:#ff9800;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer;">🔄 刷新状态</button>' +
-              '<button onclick="deleteRecord(' + i + ')" style="background:#f44336;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer;">🗑 删除</button>' +
+              '<button onclick="copyRecordLink(\'r.fbId + '\')" style="background:#4caf50;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer;">📋 复制链接</button>' +
+              '<button onclick="openRecord(\'r.fbId + '\')" style="background:#2196f3;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer;">🔗 打开查看</button>' +
+              '<button onclick="checkRecordUsed(\'r.fbId + '\', this)" style="background:#ff9800;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer;">🔄 刷新状态</button>' +
+              '<button onclick="deleteRecord(i + ')" style="background:#f44336;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer;">🗑 删除</button>' +
             '</div>' +
             '<div style="display:flex;align-items:center;gap:8px;">' +
-              '<input type="text" id="noteInput_' + i + '" value="' + escHtml(r.note || '') + '" placeholder="添加备注..." style="flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;outline:none;" />' +
-              '<button onclick="updateRecordNote(' + i + ', document.getElementById(\'noteInput_' + i + '\').value)" style="background:#9c27b0;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:13px;cursor:pointer;">保存备注</button>' +
+              '<input type="text" id="noteInput_i + '" value="escHtml(r.note || '') + '" placeholder="添加备注..." style="flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;outline:none;" />' +
+              '<button onclick="updateRecordNote(i + ', document.getElementById(\'noteInput_i + '\').value)" style="background:#9c27b0;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:13px;cursor:pointer;">保存备注</button>' +
             '</div>' +
-            '<div id="recordStatus_' + r.binId + '" style="margin-top:8px;font-size:12px;color:#999;"></div>' +
-          '</div>';
+            '<div id="recordStatus_r.fbId + '" style="margin-top:8px;font-size:12px;color:#999;"></div></div>';
         }
         list.innerHTML = html;
-
-        // 自动刷新所有记录的使用状态
-        for (const r of records) {
-          checkRecordUsed(r.binId, null, false);
-        }
+        for (const r of records) checkRecordUsed(r.fbId, null, false);
       }
-
       modal.style.display = 'flex';
     }
 
-    function closeRecords() {
-      document.getElementById('recordsModal').style.display = 'none';
-    }
+    function closeRecords() { document.getElementById('recordsModal').style.display = 'none'; }
+    function copyRecordLink(fbId) { const shareUrl = window.location.origin + window.location.pathname + '#fb_' + fbId; copyText(shareUrl, null, null, true); }
+    async function openRecord(fbId) { const shareUrl = window.location.origin + window.location.pathname + '#fb_' + fbId; window.open(shareUrl, '_blank'); }
 
-    function copyRecordLink(binId) {
-      const shareUrl = window.location.origin + window.location.pathname + '#jb_' + binId;
-      copyText(shareUrl, null, null, true);
-    }
-
-    async function openRecord(binId) {
-      const shareUrl = window.location.origin + window.location.pathname + '#jb_' + binId;
-      window.open(shareUrl, '_blank');
-    }
-
-    async function checkRecordUsed(binId, btn, showToastFlag) {
+    async function checkRecordUsed(fbId, btn, showToastFlag) {
       if (showToastFlag !== false) showToastFlag = true;
       try {
-        const resp = await fetch(JSONBIN_API + '/b/' + binId + '/latest', {
-          method: 'GET',
-          headers: { 'Authorization': 'token ' + GIST_TOKEN }
-        });
+        const resp = await fetch(FIREBASE_URL + '/' + fbId + '.json', { method: 'GET', headers: { 'Content-Type': 'application/json' } });
         const result = await resp.json();
         let usedCount = 0;
-        if (result.files && result.files['data.json']) {
-          const data = JSON.parse(result.files['data.json'].content);
-          if (data.usedAccounts) {
-            usedCount = Object.keys(data.usedAccounts).filter(k => data.usedAccounts[k]).length;
-          }
+        if (result && result.accounts) {
+          usedCount = result.accounts.filter(a => a.used).length;
         }
-        const statusEl = document.getElementById('recordStatus_' + binId);
-        if (statusEl) {
-          statusEl.innerHTML = '✅ 已使用 <strong style="color:#ff9800;">' + usedCount + '</strong> 条账号' +
-            (usedCount > 0 ? ' <span style="color:#4caf50;">（已实时同步）</span>' : ' <span style="color:#999;">（暂无使用记录）</span>');
-          statusEl.style.color = usedCount > 0 ? '#333' : '#999';
-        }
-        // 更新记录中的 usedCount
+        const statusEl = document.getElementById('recordStatus_' + fbId);
+        if (statusEl) { statusEl.innerHTML = '&#10004; 已使用 <strong style="color:#ff9800;">' + usedCount + '</strong> 条账号' + (usedCount > 0 ? ' <span style="color:#4caf50;">（已实时同步）</span>' : ' <span style="color:#999;">（暂无使用记录）</span>'); statusEl.style.color = usedCount > 0 ? '#333' : '#999'; }
         const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
-        const rec = records.find(r => r.binId === binId);
+        const rec = records.find(r => r.fbId === fbId);
         if (rec) rec.usedCount = usedCount;
         localStorage.setItem('account_tool_records', JSON.stringify(records));
-
         if (showToastFlag) showToast('已刷新：' + usedCount + ' 条已使用');
-      } catch (e) {
-        if (showToastFlag) showToast('刷新失败，请检查网络');
-      }
+      } catch (e) { if (showToastFlag) showToast('刷新失败，请检查网络'); }
     }
 
-    // 点击弹窗背景关闭
-    document.addEventListener('click', function(e) {
-      const modal = document.getElementById('recordsModal');
-      if (e.target === modal) closeRecords();
-    });
+    document.addEventListener('click', function(e) { const modal = document.getElementById('recordsModal'); if (e.target === modal) closeRecords(); });
   </script>
 </body>
 </html>
