@@ -40,17 +40,29 @@
     }
 
     .account-card.used {
-      background: #f8f8f8;
-      border-color: #d0d0d0;
-      opacity: 0.85;
+      background: linear-gradient(135deg, #fff3e0, #ffe0b2) !important;
+      border-color: #ff9800 !important;
+      border-width: 2px !important;
+      box-shadow: 0 4px 12px rgba(255, 152, 0, 0.2) !important;
+      position: relative;
+    }
+
+    .account-card.used::before {
+      content: '✓ 已使用';
+      position: absolute;
+      top: -10px;
+      right: 10px;
+      background: #ff9800;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(255, 152, 0, 0.4);
     }
 
     .account-card.used .card-num {
-      background: #aaa;
-    }
-
-    .account-card.used .card-num::after {
-      content: ' ✓';
+      background: #ff9800 !important;
     }
 
     .used-badge {
@@ -362,6 +374,9 @@
       }
       tbody tr { border-bottom: 1px solid #f0f0f0; transition: background 0.15s; }
       tbody tr:hover { background: #f9fdf9; }
+      tbody tr.used-row { background: #fff3e0 !important; }
+      tbody tr.used-row td { color: #e65100 !important; font-weight: 500; }
+      tbody tr.used-row td.num { color: #ff9800 !important; font-weight: 700; }
       tbody td { padding: 14px 16px; color: #444; vertical-align: middle; }
       td.num { color: #4caf50; font-weight: 700; font-size: 16px; width: 50px; }
       .cell-inner { display: flex; align-items: center; gap: 8px; }
@@ -843,7 +858,7 @@
     }
 
     // ═══════════════════════════════════════════════════════
-    //  二维码（使用 Google Chart API，无需 JS 库）
+    //  二维码（使用 goqr.me API，国内可访问）
     // ═══════════════════════════════════════════════════════
     function toggleQR() {
       const wrap = document.getElementById('qrCodeWrap');
@@ -858,12 +873,12 @@
         return;
       }
 
-      // 使用 Google Chart API 生成二维码图片
+      // 使用 goqr.me API（国内可访问）
       const encodedLink = encodeURIComponent(shareLink);
-      const qrUrl = 'https://chart.googleapis.com/chart?cht=qr&chl=' + encodedLink + '&chs=200x200&choe=UTF-8&chld=L|2';
+      const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodedLink;
 
       document.getElementById('qrCodeCanvas').innerHTML =
-        '<img src="' + qrUrl + '" alt="二维码" style="width:200px;height:200px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);" />';
+        '<img src="' + qrUrl + '" alt="二维码" style="width:200px;height:200px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);" onerror="this.onerror=null;this.src=\'\';this.parentElement.innerHTML=\'<div style=padding:20px;color:#999;font-size:14px>二维码加载失败<br>请复制链接手动分享</div>\';" />';
 
       wrap.classList.add('active');
     }
@@ -935,12 +950,14 @@
         const visible   = showPasswords[i] || allPwVisible;
         const pwDisplay = visible ? escHtml(item.password) : '••••••••••';
         const eyeIcon   = visible ? '🙈' : '👁';
-        return '<tr>' +
+        const isUsed    = usedAccounts[i];
+        const usedClass  = isUsed ? ' used-row' : '';
+        return '<tr class="' + usedClass + '">' +
           '<td class="num">' + (i + 1) + '</td>' +
           '<td><div class="cell-inner"><span class="cell-value">' + escHtml(item.account) + '</span><button class="btn-copy-small" onclick="copyText(\'' + escAttr(item.account) + '\', this)">复制</button></div></td>' +
           '<td><div class="cell-inner"><span class="cell-value ' + (visible ? '' : 'masked') + '">' + pwDisplay + '</span><span class="toggle-pw" onclick="togglePassword(' + i + ')">' + eyeIcon + '</span><button class="btn-copy-small" onclick="copyText(\'' + escAttr(item.password) + '\', this)">复制</button></div></td>' +
           '<td><div class="cell-inner"><span class="cell-value">' + escHtml(item.email) + '</span>' + (item.email ? '<button class="btn-copy-small" onclick="copyText(\'' + escAttr(item.email) + '\', this)">复制</button>' : '') + '</div></td>' +
-          '<td style="text-align:right"><button class="btn-copy-all" onclick="copyAll(' + i + ', this)">全复制</button></td>' +
+          '<td style="text-align:right"><button class="btn-copy-all' + (isUsed ? '' : '') + '" onclick="copyAll(' + i + ', this)">' + (isUsed ? '✓ 已使用' : '全复制') + '</button></td>' +
         '</tr>';
       }).join('');
     }
