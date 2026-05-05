@@ -203,6 +203,14 @@
     .btn-my-share.active { display: block; }
     .btn-my-share:hover { background: #7b1fa2; }
 
+    .btn-records {
+      background: #009688; color: #fff; border: none; border-radius: 8px;
+      padding: 11px 16px; font-size: 15px; cursor: pointer; font-weight: 600;
+      transition: background 0.2s; display: none;
+    }
+    .btn-records.active { display: block; }
+    .btn-records:hover { background: #00796b; }
+
     .btn-clear {
       background: #f5f5f5; color: #666; border: 1px solid #ddd; border-radius: 8px;
       padding: 11px 16px; font-size: 15px; cursor: pointer; transition: background 0.2s;
@@ -446,6 +454,7 @@
         <button class="btn-share" id="btnShare" onclick="generateShareLink()">🔗 分享链接</button>
         <button class="btn-qr" id="btnQR" onclick="toggleQR()">📱 二维码</button>
         <button class="btn-my-share" id="btnMyShare" onclick="showMyShare()">📜 我的分享</button>
+        <button class="btn-records" id="btnRecords" onclick="showRecords()">📋 分享记录</button>
         <button class="btn-clear" onclick="clearAll()">清空</button>
       </div>
     </div>
@@ -485,9 +494,21 @@
     </div>
   </div>
 
-  <div id="toast">已复制！</div>
+    <div id="toast">已复制！</div>
 
-  <script>
+    <!-- 分享记录弹窗 -->
+    <div id="recordsModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;justify-content:center;align-items:flex-start;padding:20px;overflow-y:auto;">
+      <div style="background:#fff;border-radius:16px;max-width:600px;width:100%;margin:40px auto;padding:24px;position:relative;">
+        <button onclick="closeRecords()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:24px;cursor:pointer;color:#999;">×</button>
+        <h2 style="font-size:18px;color:#333;margin-bottom:16px;">📋 分享记录</h2>
+        <div id="recordsList" style="max-height:60vh;overflow-y:auto;"></div>
+        <div style="margin-top:16px;text-align:right;">
+          <button onclick="closeRecords()" style="background:#f5f5f5;color:#666;border:1px solid #ddd;border-radius:8px;padding:8px 20px;cursor:pointer;font-size:14px;">关闭</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
     // ═══════════════════════════════════════════════════════
     //  JSONBin 配置（用户提供的 API Key）
     // ═══════════════════════════════════════════════════════
@@ -505,6 +526,20 @@
     let isCloudShare   = false;
     let currentBinId   = null;  // JSONBin bin id
     let pollTimer      = null;
+
+    // ─── 保存分享记录到 localStorage ─────────────────────
+    function saveShareRecord(binId, accountCount) {
+      const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
+      records.unshift({
+        binId: binId,
+        accountCount: accountCount,
+        createdAt: Date.now(),
+        usedCount: 0
+      });
+      // 最多保留 50 条记录
+      if (records.length > 50) records.length = 50;
+      localStorage.setItem('account_tool_records', JSON.stringify(records));
+    }
 
     // ─── 创建云端分享（JSONBin）────────────────────────────
     async function createCloudShare() {
@@ -524,6 +559,8 @@
         });
         const result = await resp.json();
         if (result.metadata && result.metadata.id) {
+          // 保存分享记录
+          saveShareRecord(result.metadata.id, accounts.length);
           return { success: true, binId: result.metadata.id };
         }
         throw new Error('创建失败');
@@ -1095,6 +1132,99 @@
       if (toastTimer) clearTimeout(toastTimer);
       toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
     }
+
+    // ══════════════════════════════════════════════════════
+    //  分享记录弹窗
+    // ══════════════════════════════════════════════════════
+    async function showRecords() {
+      const modal = document.getElementById('recordsModal');
+      const list  = document.getElementById('recordsList');
+      const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
+
+      if (records.length === 0) {
+        list.innerHTML = '<div style="text-align:center;color:#999;padding:40px 0;font-size:14px;">暂无分享记录<br>快去分享你的第一条账号吧！</div>';
+      } else {
+        // 为每个记录获取最新使用状态
+        let html = '';
+        for (let i = 0; i < records.length; i++) {
+          const r = records[i];
+          const shareUrl = window.location.origin + window.location.pathname + '#jb_' + r.binId;
+          const timeStr  = new Date(r.createdAt).toLocaleString('zh-CN');
+          html += '<div style="border:1px solid #eee;border-radius:12px;padding:14px;margin-bottom:12px;background:#fafafa;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+              '<span style="font-size:13px;color:#999;">' + timeStr + '</span>' +
+              '<span style="font-size:12px;color:#666;background:#e8f5e9;padding:2px 8px;border-radius:10px;">共 ' + r.accountCount + ' 条</span>' +
+            '</div>' +
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+              '<button onclick="copyRecordLink(\'' + r.binId + '\')" style="background:#4caf50;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer;">📋 复制链接</button>' +
+              '<button onclick="openRecord(\'' + r.binId + '\')" style="background:#2196f3;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer;">🔗 打开查看</button>' +
+              '<button onclick="checkRecordUsed(\'' + r.binId + '\', this)" style="background:#ff9800;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer;">🔄 刷新状态</button>' +
+            '</div>' +
+            '<div id="recordStatus_' + r.binId + '" style="margin-top:8px;font-size:12px;color:#999;"></div>' +
+          '</div>';
+        }
+        list.innerHTML = html;
+
+        // 自动刷新所有记录的使用状态
+        for (const r of records) {
+          checkRecordUsed(r.binId, null, false);
+        }
+      }
+
+      modal.style.display = 'flex';
+    }
+
+    function closeRecords() {
+      document.getElementById('recordsModal').style.display = 'none';
+    }
+
+    function copyRecordLink(binId) {
+      const shareUrl = window.location.origin + window.location.pathname + '#jb_' + binId;
+      copyText(shareUrl, null, null, true);
+    }
+
+    async function openRecord(binId) {
+      const shareUrl = window.location.origin + window.location.pathname + '#jb_' + binId;
+      window.open(shareUrl, '_blank');
+    }
+
+    async function checkRecordUsed(binId, btn, showToastFlag) {
+      if (showToastFlag !== false) showToastFlag = true;
+      try {
+        const resp = await fetch(JSONBIN_API + '/b/' + binId + '/latest', {
+          method: 'GET',
+          headers: { 'X-Master-Key': JSONBIN_KEY }
+        });
+        const result = await resp.json();
+        let usedCount = 0;
+        if (result.record && result.record.usedAccounts) {
+          usedCount = Object.keys(result.record.usedAccounts).filter(k => result.record.usedAccounts[k]).length;
+        } else if (result.usedAccounts) {
+          usedCount = Object.keys(result.usedAccounts).filter(k => result.usedAccounts[k]).length;
+        }
+        const statusEl = document.getElementById('recordStatus_' + binId);
+        if (statusEl) {
+          statusEl.innerHTML = '✅ 已使用 <strong style="color:#ff9800;">' + usedCount + '</strong> 条账号' +
+            (usedCount > 0 ? ' <span style="color:#4caf50;">（已实时同步）</span>' : ' <span style="color:#999;">（暂无使用记录）</span>');
+          statusEl.style.color = usedCount > 0 ? '#333' : '#999';
+        }
+        // 更新记录中的 usedCount
+        const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
+        const rec = records.find(r => r.binId === binId);
+        if (rec) rec.usedCount = usedCount;
+        localStorage.setItem('account_tool_records', JSON.stringify(records));
+
+        if (showToastFlag) showToast('已刷新：' + usedCount + ' 条已使用');
+      } catch (e) {
+        if (showToastFlag) showToast('刷新失败，请检查网络');
+      }
+    }
+
+    // 点击弹窗背景关闭
+    document.addEventListener('click', function(e) {
+      const modal = document.getElementById('recordsModal');
+      if (e.target === modal) closeRecords();
+    });
   </script>
 </body>
 </html>
