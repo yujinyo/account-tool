@@ -700,7 +700,7 @@
       document.getElementById('btnQR').classList.add('active');
       const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
       if (records.length > 0) document.getElementById('btnRecords').classList.add('active');
-      showToast('解析成功 parsed.length + ' 条账号，可分享！');
+      showToast('解析成功 ' + parsed.length + ' 条账号，可分享！');
     }
 
     function autoSplit(line) {
@@ -715,7 +715,7 @@
       const jsonStr = JSON.stringify(shareData);
       let encoded = '';
       try { encoded = LZString.compressToEncodedURIComponent(jsonStr); } catch(e) { encoded = btoa(unescape(encodeURIComponent(jsonStr))); }
-      const localUrl = window.location.origin + window.location.pathname + '#encoded;
+      const localUrl = window.location.origin + window.location.pathname + '#' + encoded;
       showShareSuccess(localUrl);
       showToast('链接已生成，正在上传到云端同步...');
       (async () => {
