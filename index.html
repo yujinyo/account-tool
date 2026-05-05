@@ -596,7 +596,7 @@
         usedAccounts = { ...usedAccounts, ...cloudUsed };
         const newCount = Object.keys(usedAccounts).filter(k => usedAccounts[k]).length;
         renderAll();
-        showToast(newCount > oldCount ? '发现 (newCount - oldCount) + ' 条新使用记录！' : '已是最新状态');
+        showToast(newCount > oldCount ? '发现 ' + (newCount - oldCount) + ' 条新使用记录！' : '已是最新状态');
       } else { showToast('刷新失败，请检查网络'); }
     }
 
