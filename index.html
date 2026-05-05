@@ -440,13 +440,17 @@
 
   <div id="toast">已复制！</div>
 
-  <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/lib/lz-string.min.js"></script>
   <script>
     let accounts = [];
     let showPasswords = {};
     let usedAccounts = {};   // 记录哪些账号已使用 {index: true}
     let allPwVisible = false;
     let isSharedView = false;
+    let isCloudShare = false;  // 是否使用云端同步分享
+    let currentBinId = null;   // JSONBin的bin ID
+    let currentAccessKey = null; // JSONBin的access key
+    let pollTimer = null;      // 轮询定时器
 
     // ─── 获取分享模式的唯一标识 ─────────────────────────────
     function getShareKey() {
@@ -454,26 +458,164 @@
       return 'account_tool_used_' + window.location.pathname + '_' + window.location.hash.substring(1, 20);
     }
 
+    // ─── JSONBin API 基础URL ────────────────────────────────
+    const JSONBIN_API = 'https://api.jsonbin.io/v3';
+
+    // ─── 创建云端分享（JSONBin）────────────────────────────
+    async function createCloudShare() {
+      const shareData = { accounts: accounts, usedAccounts: usedAccounts };
+      try {
+        const resp = await fetch(JSONBIN_API + '/b', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(shareData)
+        });
+        const result = await resp.json();
+        if (result.metadata) {
+          return {
+            binId: result.metadata.id,
+            accessKey: result.metadata.accessKey,
+            success: true
+          };
+        }
+        throw new Error('创建失败');
+      } catch(e) {
+        console.error('Cloud share error:', e);
+        return { success: false, error: e.message };
+      }
+    }
+
+    // ─── 读取云端数据 ──────────────────────────────────────
+    async function readCloudData(binId) {
+      try {
+        const resp = await fetch(JSONBIN_API + '/b/' + binId + '/latest', {
+          method: 'GET'
+        });
+        if (resp.status === 429) {
+          // 速率限制
+          handleRateLimit();
+          return null;
+        }
+        const result = await resp.json();
+        if (result.record) return result.record;
+        if (result.accounts) return result;
+        return null;
+      } catch(e) {
+        console.error('Read cloud error:', e);
+        return null;
+      }
+    }
+
+    // ─── 更新云端已使用状态 ────────────────────────────────
+    async function updateCloudUsed() {
+      if (!currentBinId || !currentAccessKey) return;
+      try {
+        const resp = await fetch(JSONBIN_API + '/b/' + currentBinId, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Access-Key': currentAccessKey
+          },
+          body: JSON.stringify({ accounts: accounts, usedAccounts: usedAccounts })
+        });
+        if (resp.status === 429) {
+          handleRateLimit();
+        }
+      } catch(e) {
+        console.error('Update cloud error:', e);
+      }
+    }
+
+    // ─── 开始轮询云端状态 ──────────────────────────────────
+    let pollInterval = 10000; // 初始10秒
+    function startPolling() {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(async () => {
+        const data = await readCloudData(currentBinId);
+        if (data && data.usedAccounts) {
+          const oldCount = Object.keys(usedAccounts).filter(k => usedAccounts[k]).length;
+          usedAccounts = data.usedAccounts;
+          const newCount = Object.keys(usedAccounts).filter(k => usedAccounts[k]).length;
+          renderAll();
+          // 如果有新的使用，显示提示
+          if (newCount > oldCount && !isSharedView) {
+            showToast('有 ' + (newCount - oldCount) + ' 条账号被使用了！');
+          }
+          // 成功获取数据，恢复较快轮询
+          if (pollInterval > 10000) {
+            pollInterval = 10000;
+            startPolling();
+          }
+        }
+      }, pollInterval);
+    }
+    
+    // ─── 处理API速率限制 ─────────────────────────────────
+    function handleRateLimit() {
+      // 如果收到速率限制错误，增加轮询间隔
+      pollInterval = Math.min(pollInterval * 2, 60000); // 最多60秒
+      startPolling();
+      showToast('同步延迟已调整至 ' + (pollInterval / 1000) + ' 秒');
+    }
+
     // ─── 初始化 ──────────────────────────────────────────────
-    window.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('DOMContentLoaded', async () => {
       const hash = window.location.hash;
       if (hash && hash.length > 1) {
+        const hashContent = hash.substring(1);
+        
+        // 检查是否为云端分享链接（JSONBin格式：jb_<binId>_<accessKey>）
+        if (hashContent.startsWith('jb_')) {
+          const parts = hashContent.substring(3).split('_');
+          if (parts.length >= 2) {
+            currentBinId = parts[0];
+            currentAccessKey = parts[1];
+            isCloudShare = true;
+            isSharedView = true;
+            
+            // 从云端读取数据
+            const data = await readCloudData(currentBinId);
+            if (data) {
+              accounts = data.accounts || [];
+              usedAccounts = data.usedAccounts || {};
+              
+              // 界面调整为查看模式
+              document.getElementById('viewModeBanner').innerHTML = '☁️ 云端同步模式，已使用状态实时同步中...';
+              document.getElementById('viewModeBanner').classList.add('active');
+              document.getElementById('shareBanner').style.display = 'none';
+              document.getElementById('rawInput').style.display = 'none';
+              document.querySelector('.sep-setting').style.display = 'none';
+              document.querySelector('.hint').style.display = 'none';
+              document.querySelector('.btn-parse').style.display = 'none';
+              document.querySelector('.btn-clear').style.display = 'none';
+              document.querySelector('.share-info').style.display = 'none';
+              renderAll();
+              
+              // 开始轮询云端状态
+              startPolling();
+              showToast('已加载 ' + accounts.length + ' 条账号，实时同步中');
+            } else {
+              showToast('加载分享数据失败，请检查链接');
+            }
+            return;
+          }
+        }
+        
+        // 旧版：本地压缩/Base64链接
         try {
-          // 优先尝试LZ-String解压（新版短链接）
           let jsonStr = '';
           try {
-            jsonStr = LZString.decompressFromEncodedURIComponent(hash.substring(1));
+            jsonStr = LZString.decompressFromEncodedURIComponent(hashContent);
           } catch(e) {}
-          // 降级到base64（旧版链接兼容）
           if (!jsonStr) {
             try {
-              jsonStr = decodeURIComponent(atob(hash.substring(1)));
+              jsonStr = decodeURIComponent(atob(hashContent));
             } catch(e) {}
           }
+          if (!jsonStr) return;
           const data = JSON.parse(jsonStr);
           accounts = data.accounts || data;
           usedAccounts = data.usedAccounts || {};
-          // 分享模式下，从localStorage加载已使用的标记（以URL为key）
           const shareKey = getShareKey();
           const savedUsed = localStorage.getItem(shareKey);
           if (savedUsed) {
@@ -494,6 +636,7 @@
           console.error('Load error:', e);
         }
       } else {
+        // 正常模式：从localStorage加载
         const saved = localStorage.getItem('account_tool_data');
         if (saved) {
           try {
@@ -564,30 +707,52 @@
     }
 
     // ─── 生成分享链接 ───────────────────────────────────────
-    function generateShareLink() {
+    async function generateShareLink() {
       if (accounts.length === 0) { showToast('请先解析账号数据'); return; }
-      const shareData = { accounts: accounts };
-      const jsonStr = JSON.stringify(shareData);
-      // 优先使用LZ-String压缩，压缩率比base64高约50%
-      let encoded = '';
-      try {
-        encoded = LZString.compressToEncodedURIComponent(jsonStr);
-      } catch(e) {
-        // 降级到base64
-        encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+      
+      showToast('正在创建云端分享...');
+      
+      // 创建云端分享
+      const cloudResult = await createCloudShare();
+      if (!cloudResult.success) {
+        // 降级到本地压缩链接
+        const shareData = { accounts: accounts };
+        const jsonStr = JSON.stringify(shareData);
+        let encoded = '';
+        try {
+          encoded = LZString.compressToEncodedURIComponent(jsonStr);
+        } catch(e) {
+          encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+        }
+        const shareUrl = window.location.origin + window.location.pathname + '#' + encoded;
+        document.getElementById('shareLinkInput').value = shareUrl;
+        document.getElementById('shareLinkCopy').value = shareUrl;
+        document.getElementById('shareBanner').classList.add('active');
+        document.getElementById('shareSuccess').classList.add('active');
+        copyShareLink();
+        showToast('云端创建失败，已降级为本地链接');
+        return;
       }
-      const shareUrl = window.location.origin + window.location.pathname + '#' + encoded;
+      
+      // 云端分享成功
+      currentBinId = cloudResult.binId;
+      currentAccessKey = cloudResult.accessKey;
+      isCloudShare = true;
+      
+      // 生成云端分享链接
+      const shareUrl = window.location.origin + window.location.pathname + '#jb_' + cloudResult.binId + '_' + cloudResult.accessKey;
       document.getElementById('shareLinkInput').value = shareUrl;
       document.getElementById('shareLinkCopy').value = shareUrl;
       document.getElementById('shareBanner').classList.add('active');
       document.getElementById('shareSuccess').classList.add('active');
       
-      // 显示压缩效果提示
-      const origLen = jsonStr.length;
-      const compLen = encoded.length;
-      const saved = Math.round((1 - compLen / origLen) * 100);
-      showToast('链接已压缩 ' + saved + '%，更短更易分享！');
+      // 显示压缩效果
+      const urlLen = shareUrl.length;
+      showToast('云端分享已创建！链接长度：' + urlLen + ' 字符');
       copyShareLink();
+      
+      // 如果是分享者自己查看，也开始轮询
+      startPolling();
     }
 
     function copyShareLink() {
@@ -728,8 +893,11 @@
       }
       if (!confirm('确定要重置所有已使用标记吗？')) return;
       usedAccounts = {};
-      if (isSharedView) {
-        // 分享模式下清除对应的localStorage
+      if (isCloudShare) {
+        // 云端模式：清除云端状态
+        updateCloudUsed();
+      } else if (isSharedView) {
+        // 本地分享模式：清除localStorage
         localStorage.removeItem(getShareKey());
       }
       saveToLocal();
@@ -758,8 +926,11 @@
       if (!isSharedView) {
         localStorage.setItem('account_tool_data', JSON.stringify({ accounts: accounts, usedAccounts: usedAccounts }));
         localStorage.setItem('account_tool_raw', document.getElementById('rawInput').value);
+      } else if (isCloudShare) {
+        // 云端分享模式：同步到云端
+        updateCloudUsed();
       } else {
-        // 分享模式下，保存已使用标记到localStorage（以URL为key）
+        // 本地分享模式：保存到localStorage
         localStorage.setItem(getShareKey(), JSON.stringify(usedAccounts));
       }
     }
