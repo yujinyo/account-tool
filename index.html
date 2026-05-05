@@ -433,12 +433,14 @@
 
     <!-- 说明 -->
     <div class="share-info">
-      💡 <strong>使用方法：</strong>粘贴账号 → 解析 → 点击「<strong>分享链接</strong>」→ 发送链接给朋友，他们打开即可一键复制！
+      💡 <strong>使用方法：</strong>粘贴账号 → 解析 → 点击「<strong>分享链接</strong>」→ 发送链接给朋友，他们打开即可一键复制！<br>
+      🔒 <strong>隐私说明：</strong>标记数据仅保存在本设备/分享链接中，不会上传到任何服务器。
     </div>
   </div>
 
   <div id="toast">已复制！</div>
 
+  <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
   <script>
     let accounts = [];
     let showPasswords = {};
@@ -446,16 +448,37 @@
     let allPwVisible = false;
     let isSharedView = false;
 
+    // ─── 获取分享模式的唯一标识 ─────────────────────────────
+    function getShareKey() {
+      // 用URL路径作为localStorage的key，同一个分享链接共享标记
+      return 'account_tool_used_' + window.location.pathname + '_' + window.location.hash.substring(1, 20);
+    }
+
     // ─── 初始化 ──────────────────────────────────────────────
     window.addEventListener('DOMContentLoaded', () => {
       const hash = window.location.hash;
       if (hash && hash.length > 1) {
         try {
-          const encoded = decodeURIComponent(hash.substring(1));
-          const jsonStr = atob(encoded);
+          // 优先尝试LZ-String解压（新版短链接）
+          let jsonStr = '';
+          try {
+            jsonStr = LZString.decompressFromEncodedURIComponent(hash.substring(1));
+          } catch(e) {}
+          // 降级到base64（旧版链接兼容）
+          if (!jsonStr) {
+            try {
+              jsonStr = decodeURIComponent(atob(hash.substring(1)));
+            } catch(e) {}
+          }
           const data = JSON.parse(jsonStr);
           accounts = data.accounts || data;
           usedAccounts = data.usedAccounts || {};
+          // 分享模式下，从localStorage加载已使用的标记（以URL为key）
+          const shareKey = getShareKey();
+          const savedUsed = localStorage.getItem(shareKey);
+          if (savedUsed) {
+            try { usedAccounts = JSON.parse(savedUsed); } catch(e) {}
+          }
           isSharedView = true;
           document.getElementById('viewModeBanner').classList.add('active');
           document.getElementById('shareBanner').style.display = 'none';
@@ -543,14 +566,27 @@
     // ─── 生成分享链接 ───────────────────────────────────────
     function generateShareLink() {
       if (accounts.length === 0) { showToast('请先解析账号数据'); return; }
-      const shareData = { accounts: accounts, usedAccounts: usedAccounts };
+      const shareData = { accounts: accounts };
       const jsonStr = JSON.stringify(shareData);
-      const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+      // 优先使用LZ-String压缩，压缩率比base64高约50%
+      let encoded = '';
+      try {
+        encoded = LZString.compressToEncodedURIComponent(jsonStr);
+      } catch(e) {
+        // 降级到base64
+        encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+      }
       const shareUrl = window.location.origin + window.location.pathname + '#' + encoded;
       document.getElementById('shareLinkInput').value = shareUrl;
       document.getElementById('shareLinkCopy').value = shareUrl;
       document.getElementById('shareBanner').classList.add('active');
       document.getElementById('shareSuccess').classList.add('active');
+      
+      // 显示压缩效果提示
+      const origLen = jsonStr.length;
+      const compLen = encoded.length;
+      const saved = Math.round((1 - compLen / origLen) * 100);
+      showToast('链接已压缩 ' + saved + '%，更短更易分享！');
       copyShareLink();
     }
 
@@ -692,6 +728,10 @@
       }
       if (!confirm('确定要重置所有已使用标记吗？')) return;
       usedAccounts = {};
+      if (isSharedView) {
+        // 分享模式下清除对应的localStorage
+        localStorage.removeItem(getShareKey());
+      }
       saveToLocal();
       renderAll();
       showToast('已重置所有标记');
@@ -718,6 +758,9 @@
       if (!isSharedView) {
         localStorage.setItem('account_tool_data', JSON.stringify({ accounts: accounts, usedAccounts: usedAccounts }));
         localStorage.setItem('account_tool_raw', document.getElementById('rawInput').value);
+      } else {
+        // 分享模式下，保存已使用标记到localStorage（以URL为key）
+        localStorage.setItem(getShareKey(), JSON.stringify(usedAccounts));
       }
     }
 
