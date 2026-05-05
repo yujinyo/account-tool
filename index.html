@@ -1,602 +1,1697 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>账号管理工具</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        .container {
-            width: 100%;
-            max-width: 480px;
-        }
-        .header {
-            text-align: center;
-            color: white;
-            margin-bottom: 30px;
-        }
-        .header h1 { font-size: 28px; margin-bottom: 8px; }
-        .header p { opacity: 0.9; font-size: 14px; }
-        .tabs {
-            display: flex;
-            background: rgba(255,255,255,0.2);
-            border-radius: 12px;
-            padding: 4px;
-            margin-bottom: 20px;
-        }
-        .tab {
-            flex: 1;
-            padding: 12px;
-            text-align: center;
-            color: rgba(255,255,255,0.7);
-            cursor: pointer;
-            border-radius: 8px;
-            transition: all 0.3s;
-            font-weight: 500;
-        }
-        .tab.active {
-            background: white;
-            color: #667eea;
-        }
-        .card {
-            background: white;
-            border-radius: 16px;
-            padding: 30px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
-        }
-        .form-group { margin-bottom: 20px; }
-        .form-group label {
-            display: block;
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 8px;
-            font-weight: 500;
-        }
-        .form-group input {
-            width: 100%;
-            padding: 14px 16px;
-            border: 2px solid #e8e8e8;
-            border-radius: 10px;
-            font-size: 16px;
-            transition: border-color 0.3s;
-            outline: none;
-        }
-        .form-group input:focus { border-color: #667eea; }
-        .btn {
-            width: 100%;
-            padding: 16px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(102,126,234,0.4);
-        }
-        .btn:active { transform: translateY(0); }
-        .btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
-        .toggle {
-            text-align: center;
-            margin-top: 20px;
-            color: #999;
-            font-size: 14px;
-        }
-        .toggle a {
-            color: #667eea;
-            text-decoration: none;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        .toggle a:hover { text-decoration: underline; }
-        .message {
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin-bottom: 16px;
-            font-size: 14px;
-            display: none;
-        }
-        .message.error {
-            background: #fee;
-            color: #c00;
-            border: 1px solid #fcc;
-            display: block;
-        }
-        .message.success {
-            background: #efe;
-            color: #060;
-            border: 1px solid #cfc;
-            display: block;
-        }
-        /* 账号列表样式 */
-        .account-list {
-            display: none;
-            margin-top: 20px;
-        }
-        .account-list.active { display: block; }
-        .account-item {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 16px;
-            margin-bottom: 12px;
-            cursor: pointer;
-            transition: all 0.2s;
-            border: 2px solid transparent;
-        }
-        .account-item:hover {
-            border-color: #667eea;
-            transform: translateX(4px);
-        }
-        .account-item .name {
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 4px;
-        }
-        .account-item .time {
-            font-size: 12px;
-            color: #999;
-        }
-        .account-item .accounts {
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px solid #e8e8e8;
-            font-size: 13px;
-            color: #666;
-            line-height: 1.6;
-        }
-        .copy-toast {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.8);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-size: 14px;
-            z-index: 1000;
-            display: none;
-        }
-        .copy-toast.show { display: block; animation: fadeIn 0.2s; }
-        @keyframes fadeIn { from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
-        .stats {
-            display: flex;
-            gap: 16px;
-            margin-bottom: 20px;
-        }
-        .stat-box {
-            flex: 1;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 16px;
-            border-radius: 10px;
-            text-align: center;
-        }
-        .stat-box .num { font-size: 28px; font-weight: 700; }
-        .stat-box .label { font-size: 12px; opacity: 0.9; }
-        .add-btn {
-            background: #f8f9fa;
-            border: 2px dashed #ddd;
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-            cursor: pointer;
-            color: #999;
-            transition: all 0.2s;
-        }
-        .add-btn:hover {
-            border-color: #667eea;
-            color: #667eea;
-        }
-        .logout-btn {
-            display: block;
-            width: 100%;
-            padding: 12px;
-            background: #f5f5f5;
-            color: #666;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            cursor: pointer;
-            margin-bottom: 16px;
-        }
-        .logout-btn:hover { background: #eee; }
-        .share-btn {
-            display: block;
-            width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            margin-bottom: 12px;
-        }
-        .share-btn:hover { opacity: 0.9; }
-        .modal {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.5);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            z-index: 100;
-        }
-        .modal.show { display: flex; }
-        .modal-content {
-            background: white;
-            border-radius: 16px;
-            padding: 30px;
-            width: 100%;
-            max-width: 420px;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-        .modal h3 {
-            margin-bottom: 20px;
-            color: #333;
-        }
-        .share-link {
-            background: #f8f9fa;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 13px;
-            color: #666;
-            word-break: break-all;
-            margin-bottom: 12px;
-            border: 1px solid #e8e8e8;
-        }
-        .modal-close {
-            width: 100%;
-            padding: 12px;
-            background: #f5f5f5;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        .modal-close:hover { background: #eee; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>账号分离一键复制工具</title>
+  <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/lib/lz-string.min.js"></script>
+  <style>
+    * { margin:0; padding:0; box-sizing: border-box; }
+
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+      font-family: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", Arial, sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+      padding: 0;
+    }
+
+    body { padding-top: env(safe-area-inset-top); }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      background: #fff;
+      min-height: 100vh;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #4caf50, #2e7d32);
+      padding: 28px 20px 24px;
+      text-align: center;
+    }
+
+    .header h1 {
+      color: #fff;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    .user-bar {
+      background: #f8f9fa;
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #eee;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: #333;
+    }
+
+    .user-info strong {
+      color: #4caf50;
+    }
+
+    .btn-logout {
+      background: #f5f5f5;
+      color: #666;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .btn-logout:hover {
+      background: #e8e8e8;
+    }
+
+    .login-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 10000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .login-box {
+      background: #fff;
+      border-radius: 16px;
+      max-width: 400px;
+      width: 100%;
+      padding: 32px 24px;
+    }
+
+    .login-box h2 {
+      font-size: 20px;
+      color: #333;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .login-box .tab {
+      display: flex;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #eee;
+    }
+
+    .login-box .tab button {
+      flex: 1;
+      background: none;
+      border: none;
+      padding: 10px;
+      font-size: 15px;
+      cursor: pointer;
+      color: #999;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+    }
+
+    .login-box .tab button.active {
+      color: #4caf50;
+      border-bottom-color: #4caf50;
+      font-weight: 600;
+    }
+
+    .login-box input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 12px;
+      outline: none;
+    }
+
+    .login-box input:focus {
+      border-color: #4caf50;
+    }
+
+    .login-box button.submit {
+      width: 100%;
+      padding: 12px;
+      background: #4caf50;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+
+    .login-box button.submit:hover {
+      background: #43a047;
+    }
+
+    .login-box .hint {
+      font-size: 12px;
+      color: #999;
+      margin-top: 12px;
+      text-align: center;
+    }
+
+    .login-box .error-msg {
+      color: #f44336;
+      font-size: 13px;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    .login-box .success-msg {
+      color: #4caf50;
+      font-size: 13px;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    .account-card.used {
+      background: linear-gradient(135deg, #fff3e0, #ffe0b2) !important;
+      border-color: #ff9800 !important;
+      border-width: 2px !important;
+      box-shadow: 0 4px 12px rgba(255, 152, 0, 0.2) !important;
+      position: relative;
+    }
+
+    .account-card.used::before {
+      content: '✓ 已使用';
+      position: absolute;
+      top: -10px;
+      right: 10px;
+      background: #ff9800;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(255, 152, 0, 0.4);
+    }
+
+    .account-card.used .card-num {
+      background: #ff9800 !important;
+    }
+
+    .used-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: #e0e0e0;
+      color: #888;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 12px;
+      margin-left: auto;
+    }
+
+    .used-badge.active {
+      background: #4caf50;
+      color: #fff;
+    }
+
+    .used-badge.active::before {
+      content: '✓ ';
+    }
+
+    .share-banner {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      border-radius: 12px;
+      padding: 20px 18px;
+      margin: 16px 16px 0;
+      display: none;
+    }
+    .share-banner.active { display: block; }
+    .share-banner h3 { font-size: 15px; margin-bottom: 4px; }
+    .share-banner p { font-size: 12px; opacity: 0.85; margin-bottom: 12px; line-height: 1.5; }
+    .share-banner input {
+      width: 100%; padding: 10px 12px; border: none; border-radius: 8px;
+      font-size: 12px; color: #333; background: rgba(255,255,255,0.97);
+      margin-bottom: 10px;
+    }
+    .share-banner button {
+      width: 100%; padding: 11px; border: none; border-radius: 8px;
+      background: #fff; color: #667eea; font-weight: 700;
+      font-size: 14px; cursor: pointer;
+    }
+
+    .share-success {
+      background: #d4edda; border: 1px solid #c3e6cb; color: #155724;
+      border-radius: 10px; padding: 14px 16px; font-size: 13px;
+      margin: 12px 16px 0; display: none; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .share-success.active { display: flex; flex-wrap: wrap; }
+    .share-success input {
+      flex: 1; min-width: 0; padding: 7px 10px; border: 1px solid #b8dac5;
+      border-radius: 6px; font-size: 12px; background: #fff; color: #333;
+    }
+    .share-success button {
+      background: #4caf50; color: #fff; border: none; border-radius: 6px;
+      padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+
+    .qr-code-wrap {
+      text-align: center;
+      margin: 12px 16px 0;
+      display: none;
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .qr-code-wrap.active { display: block; }
+    .qr-code-wrap h4 { font-size: 14px; color: #333; margin-bottom: 10px; }
+    .qr-code-wrap canvas { margin: 0 auto; display: block; }
+    .qr-code-wrap p { font-size: 11px; color: #999; margin-top: 8px; }
+
+    .view-mode-banner {
+      background: #fff3cd; border: 1px solid #ffeeba; color: #856404;
+      border-radius: 10px; padding: 12px 16px; font-size: 13px;
+      margin: 12px 16px 0; display: none;
+    }
+    .view-mode-banner.active { display: block; }
+    .view-mode-banner.cloud { background: #d1ecf1; border-color: #bee5eb; color: #0c5460; }
+
+    .input-section { padding: 16px 16px 0; }
+
+    .sep-setting {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 10px; flex-wrap: wrap;
+    }
+    .sep-setting label { font-size: 13px; color: #666; white-space: nowrap; }
+    .sep-setting input {
+      border: 1px solid #d9d9d9; border-radius: 6px; padding: 7px 10px;
+      font-size: 13px; width: 110px; outline: none; flex: 1; max-width: 180px;
+    }
+    .sep-setting input:focus { border-color: #4caf50; }
+    .sep-setting .hint { font-size: 11px; color: #aaa; width: 100%; margin-top: -2px; }
+
+    textarea#rawInput {
+      width: 100%; min-height: 120px; border: 1px solid #d9d9d9;
+      border-radius: 10px; padding: 12px 14px; font-size: 14px;
+      font-family: "Courier New", monospace; color: #444;
+      resize: vertical; outline: none; transition: border-color 0.2s; line-height: 1.7;
+    }
+    textarea#rawInput:focus { border-color: #4caf50; }
+
+    .parse-btn-wrap {
+      margin-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    }
+
+    .btn-parse {
+      background: #4caf50; color: #fff; border: none; border-radius: 8px;
+      padding: 11px 20px; font-size: 15px; cursor: pointer; font-weight: 600;
+      transition: background 0.2s; flex: 1; min-width: 100px;
+    }
+    .btn-parse:hover { background: #43a047; }
+
+    .btn-share {
+      background: #667eea; color: #fff; border: none; border-radius: 8px;
+      padding: 11px 16px; font-size: 15px; cursor: pointer; font-weight: 600;
+      transition: background 0.2s; display: none; flex: 1; min-width: 100px;
+    }
+    .btn-share.active { display: block; }
+    .btn-share:hover { background: #5a6fd6; }
+
+    .btn-qr {
+      background: #ff9800; color: #fff; border: none; border-radius: 8px;
+      padding: 11px 16px; font-size: 15px; cursor: pointer; font-weight: 600;
+      transition: background 0.2s; display: none;
+    }
+    .btn-qr.active { display: block; }
+    .btn-qr:hover { background: #f57c00; }
+
+    .btn-my-share {
+      background: #9c27b0; color: #fff; border: none; border-radius: 8px;
+      padding: 11px 16px; font-size: 15px; cursor: pointer; font-weight: 600;
+      transition: background 0.2s; display: none;
+    }
+    .btn-my-share.active { display: block; }
+    .btn-my-share:hover { background: #7b1fa2; }
+
+    .btn-records {
+      background: #009688; color: #fff; border: none; border-radius: 8px;
+      padding: 11px 16px; font-size: 15px; cursor: pointer; font-weight: 600;
+      transition: background 0.2s; display: none;
+    }
+    .btn-records.active { display: block; }
+    .btn-records:hover { background: #00796b; }
+
+    .btn-clear {
+      background: #f5f5f5; color: #666; border: 1px solid #ddd; border-radius: 8px;
+      padding: 11px 16px; font-size: 15px; cursor: pointer; transition: background 0.2s;
+    }
+    .btn-clear:hover { background: #e8e8e8; }
+
+    .accounts-section { padding: 16px 16px 24px; }
+
+    .stats-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px; padding: 0 2px; flex-wrap: wrap; gap: 6px;
+    }
+    .stats-bar span { font-size: 13px; color: #888; }
+    .stats-right {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .used-count {
+      font-size: 12px; color: #aaa; background: #f0f0f0;
+      padding: 3px 10px; border-radius: 12px;
+    }
+    .used-count.has-used { color: #fff; background: #4caf50; }
+    .btn-show-all-pw {
+      font-size: 13px; color: #4caf50; cursor: pointer; background: none;
+      border: none; text-decoration: underline; padding: 4px;
+    }
+    .btn-show-all-pw:hover { color: #2e7d32; }
+    .btn-reset-used {
+      font-size: 12px; color: #999; cursor: pointer; background: none;
+      border: 1px solid #ddd; border-radius: 12px; padding: 3px 10px;
+      transition: all 0.2s;
+    }
+    .btn-reset-used:hover { color: #f44336; border-color: #f44336; background: #fff0f0; }
+    .btn-refresh-sync {
+      font-size: 12px; color: #667eea; cursor: pointer; background: none;
+      border: 1px solid #667eea; border-radius: 12px; padding: 3px 10px;
+      transition: all 0.2s; display: none;
+    }
+    .btn-refresh-sync.active { display: inline-block; }
+    .btn-refresh-sync:hover { color: #fff; background: #667eea; }
+    .sync-indicator {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+      background: #ccc; margin-right: 4px; vertical-align: middle;
+    }
+    .sync-indicator.active { background: #4caf50; animation: pulse 2s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .account-card {
+      background: #fff; border: 2px solid #eee; border-radius: 14px;
+      padding: 16px; margin-bottom: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      transition: all 0.2s;
+    }
+
+    .card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px; padding-bottom: 10px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .card-num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 30px; height: 30px; border-radius: 50%;
+      background: #4caf50; color: #fff; font-weight: 700; font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .card-row {
+      display: flex; align-items: flex-start;
+      margin-bottom: 10px; gap: 8px;
+    }
+    .card-row:last-child { margin-bottom: 0; }
+
+    .card-label {
+      font-size: 12px; color: #aaa; min-width: 40px;
+      padding-top: 2px; font-weight: 500; flex-shrink: 0;
+    }
+
+    .card-value-wrap {
+      flex: 1; display: flex; align-items: center; gap: 8px;
+      min-width: 0; flex-wrap: wrap;
+    }
+
+    .card-value {
+      flex: 1; font-size: 14px; color: #333;
+      word-break: break-all; line-height: 1.5; min-width: 0;
+      overflow-wrap: break-word;
+    }
+
+    .card-value.masked {
+      letter-spacing: 3px; color: #bbb; font-size: 16px;
+    }
+
+    .account-card.used .card-value { color: #999; text-decoration: line-through; text-decoration-color: #ccc; }
+    .account-card.used .card-value.masked { text-decoration: none; }
+    .account-card.used .card-label { color: #bbb; }
+    .account-card.used .btn-copy-all { background: #aaa; }
+    .account-card.used .btn-copy-all:hover { background: #999; }
+
+    .btn-copy {
+      background: #f0f9f0; color: #4caf50; border: 1.5px solid #4caf50;
+      border-radius: 8px; padding: 5px 14px; font-size: 13px;
+      cursor: pointer; white-space: nowrap; font-weight: 600;
+      transition: all 0.15s; flex-shrink: 0;
+    }
+    .btn-copy:hover { background: #4caf50; color: #fff; }
+    .btn-copy.copied { background: #4caf50; color: #fff; }
+
+    .btn-copy-all {
+      background: #4caf50; color: #fff; border: none; border-radius: 8px;
+      padding: 10px; font-size: 15px; cursor: pointer; font-weight: 700;
+      transition: background 0.15s; width: 100%; margin-top: 12px;
+    }
+    .btn-copy-all:hover { background: #43a047; }
+    .btn-copy-all.copied { background: #388e3c; }
+
+    .toggle-pw {
+      cursor: pointer; font-size: 16px; flex-shrink: 0;
+      user-select: none; padding: 2px;
+    }
+
+    .empty-tip {
+      text-align: center; color: #ccc; padding: 50px 0;
+      font-size: 15px; line-height: 1.8;
+    }
+
+    .share-info {
+      margin: 0 16px 20px; padding: 12px 14px;
+      background: #f0faf0; border-radius: 10px;
+      border-left: 3px solid #4caf50; font-size: 12px;
+      color: #555; line-height: 1.6;
+    }
+    .share-info strong { color: #2e7d32; }
+
+    #toast {
+      position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: rgba(60,60,60,0.9); color: #fff; padding: 12px 28px;
+      border-radius: 30px; font-size: 14px; pointer-events: none;
+      opacity: 0; transition: opacity 0.3s, transform 0.3s; z-index: 9999;
+      text-align: center; max-width: 90vw;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    @media (min-width: 768px) {
+      body { padding: 40px 20px; }
+      .container { border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); min-height: auto; }
+      .header { border-radius: 16px 16px 0 0; }
+
+      .share-banner { margin: 20px 24px 0; }
+      .share-success { margin: 12px 24px 0; }
+      .qr-code-wrap { margin: 12px 24px 0; }
+      .view-mode-banner { margin: 16px 24px 0; }
+      .input-section { padding: 16px 24px 0; }
+      .accounts-section { padding: 16px 24px 24px; }
+      .share-info { margin: 0 24px 24px; }
+
+      .header h1 { font-size: 26px; }
+
+      .account-card { display: none; }
+
+      .table-wrap { overflow-x: auto; }
+      table { width: 100%; border-collapse: collapse; font-size: 14px; }
+      thead tr { background: #f7f7f7; }
+      thead th {
+        text-align: left; padding: 13px 16px; font-weight: 600; color: #333;
+        border-bottom: 2px solid #ececec; white-space: nowrap;
+      }
+      tbody tr { border-bottom: 1px solid #f0f0f0; transition: background 0.15s; }
+      tbody tr:hover { background: #f9fdf9; }
+      tbody tr.used-row { background: #fff3e0 !important; }
+      tbody tr.used-row td { color: #e65100 !important; font-weight: 500; }
+      tbody tr.used-row td.num { color: #ff9800 !important; font-weight: 700; }
+      tbody td { padding: 14px 16px; color: #444; vertical-align: middle; }
+      td.num { color: #4caf50; font-weight: 700; font-size: 16px; width: 50px; }
+      .cell-inner { display: flex; align-items: center; gap: 8px; }
+      .cell-value { flex: 1; word-break: break-all; overflow-wrap: break-word; }
+      .masked { letter-spacing: 2px; color: #999; }
+      .btn-copy-small {
+        background: #fff; color: #4caf50; border: 1.5px solid #4caf50;
+        border-radius: 5px; padding: 3px 12px; font-size: 12px;
+        cursor: pointer; white-space: nowrap; transition: all 0.15s; font-weight: 500;
+      }
+      .btn-copy-small:hover { background: #4caf50; color: #fff; }
+      .btn-copy-small.copied { background: #4caf50; color: #fff; }
+      .btn-copy-all {
+        background: #4caf50; color: #fff; border: none; border-radius: 6px;
+        padding: 7px 20px; font-size: 13px; cursor: pointer; font-weight: 600;
+        white-space: nowrap; transition: background 0.15s;
+      }
+      .btn-copy-all:hover { background: #43a047; }
+      .btn-copy-all.copied { background: #388e3c; }
+      .toggle-pw { cursor: pointer; font-size: 13px; color: #aaa; user-select: none; }
+      .toggle-pw:hover { color: #4caf50; }
+    }
+
+    @media (max-width: 767px) {
+      .table-wrap { display: none; }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <!-- 登录注册区域 -->
-        <div id="authSection">
-            <div class="header">
-                <h1>🔐 账号管理</h1>
-                <p>安全存储，一键复制</p>
-            </div>
-            <div class="tabs">
-                <div class="tab active" data-tab="login">登录</div>
-                <div class="tab" data-tab="register">注册</div>
-            </div>
-            <div class="card">
-                <div id="msg" class="message"></div>
-                <div id="loginForm">
-                    <div class="form-group">
-                        <label>用户名</label>
-                        <input type="text" id="loginUsername" placeholder="请输入用户名" autocomplete="username">
-                    </div>
-                    <div class="form-group">
-                        <label>密码</label>
-                        <input type="password" id="loginPassword" placeholder="请输入密码" autocomplete="current-password">
-                    </div>
-                    <button class="btn" onclick="doLogin()">登录</button>
-                    <div class="toggle">没有账号？<a onclick="switchTab('register')">立即注册</a></div>
-                </div>
-                <div id="registerForm" style="display:none;">
-                    <div class="form-group">
-                        <label>用户名</label>
-                        <input type="text" id="regUsername" placeholder="请输入用户名（4-20位）" autocomplete="username">
-                    </div>
-                    <div class="form-group">
-                        <label>密码</label>
-                        <input type="password" id="regPassword" placeholder="请输入密码（至少16位）" autocomplete="new-password">
-                    </div>
-                    <button class="btn" onclick="doRegister()">注册</button>
-                    <div class="toggle">已有账号？<a onclick="switchTab('login')">立即登录</a></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 账号列表区域 -->
-        <div id="listSection" style="display:none;">
-            <div class="header">
-                <h1>📒 账号列表</h1>
-                <p>点击账号可直接复制</p>
-            </div>
-            <div class="card">
-                <button class="logout-btn" onclick="logout()">← 退出登录</button>
-                <div class="stats">
-                    <div class="stat-box">
-                        <div class="num" id="totalCount">0</div>
-                        <div class="label">账号总数</div>
-                    </div>
-                    <div class="stat-box">
-                        <div class="num" id="groupCount">0</div>
-                        <div class="label">分组数</div>
-                    </div>
-                </div>
-                <div class="add-btn" onclick="showAddModal()">+ 添加新分组</div>
-                <div id="accountList" class="account-list"></div>
-            </div>
-        </div>
+  <div class="container">
+    <div class="header">
+      <h1>🔐 账号分离一键复制工具</h1>
     </div>
 
-    <!-- 添加分组弹窗 -->
-    <div id="addModal" class="modal">
-        <div class="modal-content">
-            <h3>添加分组</h3>
-            <div class="form-group">
-                <label>分组名称（如：抖音账号、微信等）</label>
-                <input type="text" id="groupName" placeholder="请输入分组名称">
-            </div>
-            <div class="form-group">
-                <label>账号信息（每行一条）</label>
-                <textarea id="accountsText" rows="6" placeholder="每行一条账号信息，格式：&#10;账号1&#10;账号2&#10;账号3" style="width:100%;padding:14px;border:2px solid #e8e8e8;border-radius:10px;font-size:16px;resize:vertical;outline:none;"></textarea>
-            </div>
-            <button class="btn" onclick="addGroup()">确认添加</button>
-            <div style="height:12px;"></div>
-            <button class="modal-close" onclick="closeAddModal()">取消</button>
-        </div>
+    <!-- 用户栏 -->
+    <div class="user-bar" id="userBar" style="display:none;">
+      <div class="user-info">
+        <span>👤</span>
+        <strong id="currentUser"></strong>
+      </div>
+      <button class="btn-logout" onclick="logout()">退出</button>
     </div>
 
-    <!-- 分享弹窗 -->
-    <div id="shareModal" class="modal">
-        <div class="modal-content">
-            <h3>📤 分享数据</h3>
-            <p style="color:#666;font-size:13px;margin-bottom:16px;">以下链接包含你的所有账号数据，复制后分享给对方即可。</p>
-            <div class="share-link" id="shareLink"></div>
-            <button class="share-btn" onclick="copyShareLink()">📋 复制链接</button>
-            <button class="modal-close" onclick="closeShareModal()">关闭</button>
-        </div>
+    <div class="view-mode-banner" id="viewModeBanner">
+      📋 当前为分享链接查看模式，复制功能正常可用
     </div>
 
-    <div id="copyToast" class="copy-toast">已复制到剪贴板 ✓</div>
+    <div class="share-banner" id="shareBanner">
+      <h3>🔗 生成可分享链接</h3>
+      <p>将账号数据编码为链接，分享给朋友即可直接查看并复制</p>
+      <input type="text" id="shareLinkInput" readonly placeholder="点击下方按钮生成分享链接..." />
+      <button onclick="copyShareLink()">📋 复制分享链接</button>
+    </div>
 
-    <script>
-        // ============ 配置区域 ============
-        // ⚠️ 如果你在本地测试，把 API_URL 改成你的 Vercel 地址
-        const API_URL = 'https://account-tool-vgp3-7i62lav3v-yujinyos-projects.vercel.app';
-        // ⚠️ 这是你的 JSONBin Key，用于分享功能（只读）
-        const JSONBIN_KEY = '$2a$10$YcuC/l.PRLR9qXlvVmWae.HGMwNkhgxNDx/FNotNyyIip.ujfyujS';
+    <div class="share-success" id="shareSuccess">
+      <span style="width:100%;font-weight:600">✅ 分享链接已生成并复制到剪贴板</span>
+      <input type="text" id="shareLinkCopy" readonly />
+      <button onclick="copyShareLink()">再次复制</button>
+    </div>
 
-        // ============ 状态管理 ============
-        let currentUser = localStorage.getItem('username') || '';
-        let currentPassword = localStorage.getItem('password') || '';
+    <div class="qr-code-wrap" id="qrCodeWrap">
+      <h4>📱 扫码分享</h4>
+      <div id="qrCodeCanvas" style="display:flex;justify-content:center;"></div>
+      <p>用手机扫一扫，直接打开分享链接</p>
+    </div>
 
-        // ============ 初始化 ============
-        document.addEventListener('DOMContentLoaded', () => {
-            // Tab 切换
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.addEventListener('click', () => switchTab(tab.dataset.tab));
-            });
-            // 回车登录
-            document.getElementById('loginPassword').addEventListener('keypress', e => { if (e.key === 'Enter') doLogin(); });
-            // 检查登录状态
-            if (currentUser && currentPassword) {
-                showList();
-                loadAccounts();
-            }
+    <div class="input-section">
+      <div class="sep-setting">
+        <label>分隔符：</label>
+        <input id="sepInput" value="----" placeholder="----" />
+        <span class="hint">格式：账号[分隔符]密码[分隔符]邮箱，多个用换行隔开</span>
+      </div>
+      <textarea id="rawInput" placeholder="粘贴账号数据，每行一条，示例：&#10;i3mk1f7@llt.lingeringp.com----1FLZzqyJRu----bs0gub8cu3@126.com&#10;kskg4h3@llt.lingeringp.com----aPI3MWOlkq----jfp983xiz0@126.com"></textarea>
+      <div class="parse-btn-wrap">
+        <button class="btn-parse" onclick="parseData()">✨ 解析数据</button>
+        <button class="btn-share" id="btnShare" onclick="generateShareLink()">🔗 分享链接</button>
+        <button class="btn-qr" id="btnQR" onclick="toggleQR()">📱 二维码</button>
+        <button class="btn-my-share" id="btnMyShare" onclick="showMyShare()">📜 我的分享</button>
+        <button class="btn-records" id="btnRecords" onclick="showRecords()">📋 分享记录</button>
+        <button class="btn-clear" onclick="clearAll()">清空</button>
+      </div>
+    </div>
+
+    <div class="accounts-section">
+      <div class="stats-bar">
+        <span id="statsText">共 0 条账号</span>
+        <div class="stats-right">
+          <span class="sync-indicator" id="syncIndicator"></span>
+          <button class="btn-refresh-sync" id="btnRefreshSync" onclick="manualRefresh()">🔄 刷新</button>
+          <span class="used-count" id="usedCount">已使用 0 条</span>
+          <button class="btn-reset-used" onclick="resetUsed()">重置标记</button>
+          <button class="btn-show-all-pw" onclick="toggleAllPasswords()">显示/隐藏密码</button>
+        </div>
+      </div>
+
+      <div id="cardList"></div>
+
+      <div class="table-wrap">
+        <table id="accountTable">
+          <thead>
+            <tr>
+              <th>序号</th><th>账号</th><th>密码</th><th>邮箱</th>
+              <th style="text-align:right">操作</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <tr><td colspan="5" class="empty-tip">暂无数据，请在上方粘贴账号信息并点击「解析数据」</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="share-info">
+      💡 <strong>使用方法：</strong>粘贴账号 → 解析 → 点击「<strong>分享链接</strong>」或「<strong>二维码</strong>」→ 发送链接/二维码给朋友，他们打开即可一键复制！<br>
+      🔒 <strong>隐私说明：</strong>标记数据保存在云端(JSONBin)，刷新不丢失，分享者可实时查看使用状态。<br>
+      👤 <strong>多设备同步：</strong>登录后，在任何设备登录同一账号，都能查看分享记录。
+    </div>
+  </div>
+
+  <div id="toast">已复制！</div>
+
+  <!-- 登录/注册弹窗 -->
+  <div class="login-modal" id="loginModal">
+    <div class="login-box">
+      <h2>👤 用户登录</h2>
+      <div class="tab">
+        <button class="active" onclick="switchTab('login', this)">登录</button>
+        <button onclick="switchTab('register', this)">注册</button>
+      </div>
+      <div id="loginForm">
+        <input type="text" id="loginUsername" placeholder="用户名" />
+        <input type="password" id="loginPassword" placeholder="密码" />
+        <div class="error-msg" id="loginError"></div>
+        <button class="submit" onclick="doLogin()">登录</button>
+        <div class="hint">登录后，分享记录会绑定到你的账号，任何设备都能查看</div>
+      </div>
+      <div id="registerForm" style="display:none;">
+        <input type="text" id="regUsername" placeholder="用户名（3-20个字符）" />
+        <input type="password" id="regPassword" placeholder="密码（至少6个字符）" />
+        <div class="error-msg" id="regError"></div>
+        <button class="submit" onclick="doRegister()">注册</button>
+        <div class="hint">注册后，你的分享记录会保存在云端</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 分享记录弹窗 -->
+  <div id="recordsModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;justify-content:center;align-items:flex-start;padding:20px;overflow-y:auto;">
+    <div style="background:#fff;border-radius:16px;max-width:600px;width:100%;margin:40px auto;padding:24px;position:relative;">
+      <button onclick="closeRecords()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:24px;cursor:pointer;color:#999;">×</button>
+      <h2 style="font-size:18px;color:#333;margin-bottom:16px;">📋 分享记录</h2>
+      <div id="recordsList" style="max-height:60vh;overflow-y:auto;"></div>
+      <div style="margin-top:16px;text-align:right;">
+        <button onclick="closeRecords()" style="background:#f5f5f5;color:#666;border:1px solid #ddd;border-radius:8px;padding:8px 20px;cursor:pointer;font-size:14px;">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ══════════════════════════════════════════════════════
+    //  API 配置（后端 API 地址，Vercel 部署后自动生成）
+    // ══════════════════════════════════════════════════════
+    // 本地开发时用相对路径，部署后自动适配
+    const API_BASE = window.location.origin.includes('localhost')
+      ? 'http://localhost:3000'   // 本地开发用（需要 vercel dev）
+      : '';                               // 部署后使用相对路径
+
+    // SHA-256 hash 函数（前端安全存储密码）
+    async function sha256(text) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(text);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // ══════════════════════════════════════════════════════
+    //  JSONBin 配置（分享功能专用，公开数据无需保护）
+    // ══════════════════════════════════════════════════════
+    // 注意：分享链接是公开的，任何人都可以查看
+    // 这些 API Key 只用于创建/读取分享数据，不用于用户认证
+    const JSONBIN_API = 'https://api.jsonbin.io/v3';
+    const JSONBIN_KEY  = '$2a$10$YcuC/l.PRLR9qXlvVmWae.HGMwNkhgxNDx/FNotNyyIip.ujfyujS';
+
+    // ══════════════════════════════════════════════════════
+    //  全局状态
+    // ══════════════════════════════════════════════════════
+    let accounts       = [];
+    let showPasswords  = {};
+    let usedAccounts   = {};   // { index: true }
+    let allPwVisible   = false;
+    let isSharedView   = false;
+    let isCloudShare   = false;
+    let currentBinId   = null;  // JSONBin bin id
+    let pollTimer      = null;
+    let currentUser    = null;  // 当前登录用户
+
+    // ─── 检查登录状态 ─────────────────────────────────────
+    async function checkLogin() {
+      const savedUser = localStorage.getItem('account_tool_user');
+      if (savedUser) {
+        try {
+          const parsed = JSON.parse(savedUser);
+          // 旧版本数据只有 username，没有 token，需要重新登录
+          if (!parsed.token) {
+            localStorage.removeItem('account_tool_user');
+            document.getElementById('loginModal').style.display = 'flex';
+            return;
+          }
+          currentUser = parsed;
+          showUserBar();
+          loadUserRecords();
+        } catch (e) {
+          localStorage.removeItem('account_tool_user');
+          document.getElementById('loginModal').style.display = 'flex';
+        }
+      } else {
+        // 未登录，显示登录弹窗
+        document.getElementById('loginModal').style.display = 'flex';
+      }
+    }
+
+    // ─── 显示用户栏 ─────────────────────────────────────
+    function showUserBar() {
+      document.getElementById('userBar').style.display = 'flex';
+      document.getElementById('currentUser').textContent = currentUser.username;
+      document.getElementById('loginModal').style.display = 'none';
+    }
+
+    // ─── 切换登录/注册标签页 ─────────────────────────────
+    function switchTab(tab, btn) {
+      const tabBtns = btn.parentElement.querySelectorAll('button');
+      tabBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      if (tab === 'login') {
+        document.getElementById('loginForm').style.display = 'block';
+        document.getElementById('registerForm').style.display = 'none';
+      } else {
+        document.getElementById('loginForm').style.display = 'none';
+        document.getElementById('registerForm').style.display = 'block';
+      }
+    }
+
+    // ─── 注册 ─────────────────────────────────────────
+    async function doRegister() {
+      const username = document.getElementById('regUsername').value.trim();
+      const password = document.getElementById('regPassword').value;
+      const errorEl = document.getElementById('regError');
+
+      if (!username || !password) {
+        errorEl.textContent = '用户名和密码不能为空';
+        return;
+      }
+
+      if (username.length < 3 || username.length > 20) {
+        errorEl.textContent = '用户名长度需要在3-20个字符之间';
+        return;
+      }
+
+      if (password.length < 6) {
+        errorEl.textContent = '密码长度至少6个字符';
+        return;
+      }
+
+      errorEl.textContent = '注册中...';
+
+      try {
+        // 调用后端注册 API
+        const passwordHash = await sha256(password);
+        const resp = await fetch(API_BASE + '/api/user/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password: passwordHash })
         });
+        const result = await resp.json();
+        if (!resp.ok) {
+          errorEl.textContent = result.error || '注册失败';
+          return;
+        }
+        // 注册成功，保存 token 并自动登录
+        currentUser = { username: result.username, token: result.token };
+        localStorage.setItem('account_tool_user', JSON.stringify(currentUser));
+        showUserBar();
+        showToast('注册成功，已自动登录');
 
-        function switchTab(tab) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
-            document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
-            document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
-            hideMsg();
+      } catch (e) {
+        errorEl.textContent = '注册失败，请重试';
+        console.error('Register error:', e);
+      }
+    }
+
+    // ─── 登录 ─────────────────────────────────────────
+    async function doLogin() {
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const errorEl = document.getElementById('loginError');
+
+      if (!username || !password) {
+        errorEl.textContent = '用户名和密码不能为空';
+        return;
+      }
+
+      errorEl.textContent = '登录中...';
+      try {
+        const passwordHash = await sha256(password);
+        const resp = await fetch(API_BASE + '/api/user/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, passwordHash })
+        });
+        const result = await resp.json();
+        if (!resp.ok) {
+          errorEl.textContent = result.error || '登录失败';
+          return;
+        }
+        // 登录成功，保存 token
+        currentUser = { username: result.username, token: result.token };
+        localStorage.setItem('account_tool_user', JSON.stringify(currentUser));
+        showUserBar();
+        loadUserRecords();
+        showToast('登录成功');
+      } catch (e) {
+        errorEl.textContent = '登录失败，请检查网络';
+        console.error('Login error:', e);
+      }
+    }
+
+    // ─── 退出登录 ─────────────────────────────────────
+    function logout() {
+      currentUser = null;
+      localStorage.removeItem('account_tool_user');
+      document.getElementById('userBar').style.display = 'none';
+      document.getElementById('loginModal').style.display = 'flex';
+      showToast('已退出登录');
+    }
+
+    // ─── 加载用户的分享记录 ───────────────────────────
+    async function loadUserRecords() {
+      if (!currentUser || !currentUser.token) return;
+
+      try {
+        const resp = await fetch(API_BASE + '/api/user/records', {
+          method: 'GET',
+          headers: {
+            'Authorization': 'Bearer ' + currentUser.token
+          }
+        });
+        if (resp.ok) {
+          const result = await resp.json();
+          if (result.records && result.records.length > 0) {
+            // 转换为兼容格式
+            const records = result.records.map(r => ({
+              binId: r.binId,
+              accountCount: r.accountCount,
+              usedCount: r.usedCount,
+              createdAt: r.createdAt,
+              note: r.note || ''
+            }));
+            localStorage.setItem('account_tool_records', JSON.stringify(records));
+            document.getElementById('btnRecords').classList.add('active');
+          }
+        }
+      } catch (e) {
+        console.error('Load user records error:', e);
+      }
+    }
+
+    // ─── 保存分享记录到用户账号 ─────────────────────
+    async function saveRecordToUser(binId, accountCount, note) {
+      if (!currentUser || !currentUser.token) return;
+
+      try {
+        await fetch(API_BASE + '/api/user/records', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + currentUser.token
+          },
+          body: JSON.stringify({ binId, accountCount, note })
+        });
+      } catch (e) {
+        console.error('Save record error:', e);
+      }
+    }
+
+    // ─── 保存分享记录到 localStorage ─────────────────────
+    function saveShareRecord(binId, accountCount, note) {
+      // 保存到 localStorage
+      const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
+      records.unshift({
+        binId: binId,
+        accountCount: accountCount,
+        createdAt: Date.now(),
+        usedCount: 0,
+        note: note || ''
+      });
+      if (records.length > 50) records.length = 50;
+      localStorage.setItem('account_tool_records', JSON.stringify(records));
+
+      // 如果已登录，也保存到用户账号
+      if (currentUser) {
+        saveRecordToUser(binId, accountCount, note);
+      }
+    }
+
+    // ─── 更新分享记录备注 ───────────────────────────────
+    function updateRecordNote(index, note) {
+      const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
+      if (records[index]) {
+        records[index].note = note;
+        localStorage.setItem('account_tool_records', JSON.stringify(records));
+        showToast('备注已保存');
+      }
+    }
+
+    // ─── 删除分享记录 ───────────────────────────────────
+    function deleteRecord(index) {
+      if (!confirm('确定要删除这条分享记录吗？')) return;
+      const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
+      if (records[index]) {
+        records.splice(index, 1);
+        localStorage.setItem('account_tool_records', JSON.stringify(records));
+        showToast('已删除');
+        showRecords(); // 刷新列表
+      }
+    }
+
+    // ─── 创建云端分享（JSONBin）────────────────────────────
+    async function createCloudShare() {
+      const note = prompt('添加备注（可选）：');
+      const body = JSON.stringify({
+        accounts: accounts,
+        usedAccounts: usedAccounts,
+        createdAt: Date.now()
+      });
+      try {
+        const resp = await fetch(JSONBIN_API + '/b', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Master-Key': JSONBIN_KEY
+          },
+          body: body
+        });
+        const result = await resp.json();
+        if (result.metadata && result.metadata.id) {
+          // 保存分享记录
+          saveShareRecord(result.metadata.id, accounts.length, note);
+          return { success: true, binId: result.metadata.id };
+        }
+        throw new Error('创建失败');
+      } catch (e) {
+        console.error('createCloudShare error:', e);
+        return { success: false };
+      }
+    }
+
+    // ─── 读取云端数据（优化：减少重试，加快速度）───────────
+    async function readCloudData(binId) {
+      const retries = 2; // 减少重试次数
+      let lastError = null;
+      
+      for (let i = 0; i < retries; i++) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
+          
+          const resp = await fetch(JSONBIN_API + '/b/' + binId + '/latest?_=' + Date.now(), {
+            method: 'GET',
+            headers: { 'X-Master-Key': JSONBIN_KEY },
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (!resp.ok) {
+            console.error('HTTP error:', resp.status);
+            lastError = new Error('HTTP ' + resp.status);
+            if (i < retries - 1) await new Promise(r => setTimeout(r, 500));
+            continue;
+          }
+          
+          const result = await resp.json();
+          if (result.record) return result.record;
+          if (result.accounts) return result;
+          if (result.data) return result.data;
+          return null;
+        } catch (e) {
+          console.error('readCloudData error:', e);
+          lastError = e;
+          if (i < retries - 1) await new Promise(r => setTimeout(r, 500));
+        }
+      }
+      console.error('readCloudData failed after retries:', lastError);
+      return null;
+    }
+
+    // ─── 更新云端 usedAccounts ─────────────────────────────
+    async function updateCloudUsed() {
+      if (!currentBinId) return;
+      const body = JSON.stringify({
+        accounts: accounts,
+        usedAccounts: usedAccounts,
+        createdAt: Date.now()
+      });
+      try {
+        await fetch(JSONBIN_API + '/b/' + currentBinId, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Master-Key': JSONBIN_KEY
+          },
+          body: body
+        });
+      } catch (e) {
+        console.error('updateCloudUsed error:', e);
+      }
+    }
+
+    // ─── 手动刷新同步（移除自动轮询，减少请求）────────────
+    function startPolling() {
+      // 不再自动轮询，只显示刷新按钮让用户手动刷新
+      document.getElementById('btnRefreshSync').classList.add('active');
+      // 不再自动轮询
+      if (pollTimer) clearInterval(pollTimer);
+    }
+
+    // ─── 手动刷新同步 ─────────────────────────────────────
+    async function manualRefresh() {
+      if (!currentBinId) return;
+      showToast('正在刷新...');
+      const data = await readCloudData(currentBinId);
+      if (data && data.usedAccounts) {
+        const oldCount = Object.keys(usedAccounts).filter(k => usedAccounts[k]).length;
+        usedAccounts = { ...usedAccounts, ...data.usedAccounts };
+        const newCount = Object.keys(usedAccounts).filter(k => usedAccounts[k]).length;
+        renderAll();
+        if (newCount > oldCount) {
+          showToast('发现 ' + (newCount - oldCount) + ' 条新使用记录！');
+        } else {
+          showToast('已是最新状态');
+        }
+      } else {
+        showToast('刷新失败，请检查网络');
+      }
+    }
+
+    // ─── 停止轮询 ─────────────────────────────────────────
+    function stopPolling() {
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    }
+
+    // ══════════════════════════════════════════════════════
+    //  初始化：页面加载时恢复数据
+    // ══════════════════════════════════════════════════════
+    window.addEventListener('DOMContentLoaded', async () => {
+      // 检查登录状态
+      checkLogin();
+
+      const hash = window.location.hash;
+      if (hash && hash.length > 1) {
+        const hashContent = hash.substring(1);
+
+        // 检查是否为云端分享链接（格式：jb_<binId>）
+        if (hashContent.startsWith('jb_')) {
+          const binId = hashContent.substring(3);
+          currentBinId = binId;
+          isCloudShare = true;
+          isSharedView = true;
+
+          // 显示加载中状态
+          const banner = document.getElementById('viewModeBanner');
+          banner.innerHTML = '⏳ 正在加载分享数据...';
+          banner.classList.add('active', 'cloud');
+          document.getElementById('shareBanner').style.display = 'none';
+          document.getElementById('rawInput').style.display   = 'none';
+          document.querySelector('.sep-setting').style.display = 'none';
+          document.querySelector('.hint').style.display        = 'none';
+          document.querySelector('.btn-parse').style.display  = 'none';
+          document.querySelector('.btn-clear').style.display  = 'none';
+          document.querySelector('.share-info').style.display = 'none';
+
+          const data = await readCloudData(binId, 3);
+          if (data && data.accounts && data.accounts.length > 0) {
+            accounts     = data.accounts || [];
+            usedAccounts = data.usedAccounts || {};
+
+            // 保存到本地，下次打开更快
+            localStorage.setItem('account_tool_data', JSON.stringify({
+              accounts: accounts,
+              usedAccounts: usedAccounts
+            }));
+            localStorage.setItem('account_tool_shareId', binId);
+
+            // 界面调整为查看模式
+            banner.innerHTML = '☁️ 手动刷新模式 - 点击顶部「🔄 刷新」查看最新使用状态';
+            renderAll();
+
+            // 显示刷新按钮（手动刷新）
+            startPolling();
+            showToast('已加载 ' + accounts.length + ' 条账号');
+          } else {
+            banner.innerHTML = '❌ 加载分享数据失败，请检查链接是否正确';
+            banner.style.background = '#fff3cd';
+            banner.style.borderColor = '#ffeeba';
+            banner.style.color = '#856404';
+            // 显示提示信息
+            document.getElementById('cardList').innerHTML = '<div class="empty-tip">加载失败<br>可能的原因：<br>• 链接已过期或被删除<br>• 网络连接问题<br>• 链接格式不正确</div>';
+          }
+          return;
         }
 
-        function showMsg(text, type) {
-            const el = document.getElementById('msg');
-            el.textContent = text;
-            el.className = 'message ' + type;
-            setTimeout(() => el.className = 'message', 4000);
-        }
-        function hideMsg() {
-            document.getElementById('msg').className = 'message';
-        }
+        // 旧版：本地压缩 / Base64 链接
+        try {
+          let jsonStr = '';
+          try { jsonStr = LZString.decompressFromEncodedURIComponent(hashContent); } catch(e) {}
+          if (!jsonStr) {
+            try { jsonStr = decodeURIComponent(atob(hashContent)); } catch(e) {}
+          }
+          if (!jsonStr) return;
+          const data = JSON.parse(jsonStr);
+          accounts     = data.accounts || data;
+          usedAccounts = data.usedAccounts || {};
+          isSharedView = true;
 
-        // ============ 注册 ============
-        async function doRegister() {
-            const username = document.getElementById('regUsername').value.trim();
-            const password = document.getElementById('regPassword').value;
-            if (!username || username.length < 4) return showMsg('用户名至少4位', 'error');
-            if (password.length < 16) return showMsg('密码至少16位', 'error');
-            try {
-                const res = await fetch(`${API_URL}/api/user/register`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    localStorage.setItem('username', username);
-                    localStorage.setItem('password', password);
-                    currentUser = username;
-                    currentPassword = password;
-                    showMsg('注册成功！', 'success');
-                    setTimeout(() => { showList(); loadAccounts(); }, 1000);
-                } else {
-                    showMsg(data.error || '注册失败', 'error');
-                }
-            } catch (e) {
-                showMsg('网络错误，请检查网络', 'error');
+          document.getElementById('viewModeBanner').classList.add('active');
+          document.getElementById('shareBanner').style.display   = 'none';
+          document.getElementById('rawInput').style.display     = 'none';
+          document.querySelector('.sep-setting').style.display   = 'none';
+          document.querySelector('.hint').style.display          = 'none';
+          document.querySelector('.btn-parse').style.display     = 'none';
+          document.querySelector('.btn-clear').style.display     = 'none';
+          document.querySelector('.share-info').style.display    = 'none';
+          renderAll();
+          showToast('已加载 ' + accounts.length + ' 条账号');
+        } catch (e) {
+          console.error('Load hash error:', e);
+        }
+      } else {
+        // 正常模式：从 localStorage 恢复
+        const saved = localStorage.getItem('account_tool_data');
+        if (saved) {
+          try {
+            const savedData = JSON.parse(saved);
+            accounts     = savedData.accounts || savedData;
+            usedAccounts = savedData.usedAccounts || {};
+            const savedRaw = localStorage.getItem('account_tool_raw');
+            if (savedRaw) document.getElementById('rawInput').value = savedRaw;
+            // 显示按钮
+            document.getElementById('btnShare').classList.add('active');
+            document.getElementById('btnQR').classList.add('active');
+            // 检查是否有已创建的分享
+            const savedShareId = localStorage.getItem('account_tool_shareId');
+            if (savedShareId) {
+              document.getElementById('btnMyShare').classList.add('active');
+              currentBinId = savedShareId;
+              startPolling();
             }
-        }
-
-        // ============ 登录 ============
-        async function doLogin() {
-            const username = document.getElementById('loginUsername').value.trim();
-            const password = document.getElementById('loginPassword').value;
-            if (!username || !password) return showMsg('请输入用户名和密码', 'error');
-            try {
-                const res = await fetch(`${API_URL}/api/user/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    localStorage.setItem('username', username);
-                    localStorage.setItem('password', password);
-                    currentUser = username;
-                    currentPassword = password;
-                    showList();
-                    loadAccounts();
-                } else {
-                    showMsg(data.error || '登录失败', 'error');
-                }
-            } catch (e) {
-                showMsg('网络错误，请检查网络', 'error');
+            // 显示分享记录按钮（如果有记录）
+            const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
+            if (records.length > 0) {
+              document.getElementById('btnRecords').classList.add('active');
             }
+            renderAll();
+          } catch(e) {}
+        } else {
+          // 即使没有账号数据，也检查是否有分享记录
+          const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
+          if (records.length > 0) {
+            document.getElementById('btnRecords').classList.add('active');
+          }
         }
+      }
+    });
 
-        function logout() {
-            localStorage.removeItem('username');
-            localStorage.removeItem('password');
-            currentUser = '';
-            currentPassword = '';
-            document.getElementById('authSection').style.display = 'block';
-            document.getElementById('listSection').style.display = 'none';
-            document.getElementById('loginUsername').value = '';
-            document.getElementById('loginPassword').value = '';
-        }
+    // ══════════════════════════════════════════════════════
+    //  解析数据
+    // ══════════════════════════════════════════════════════
+    function parseData() {
+      const raw = document.getElementById('rawInput').value.trim();
+      if (!raw) { showToast('请先输入账号数据'); return; }
 
-        // ============ 账号管理 ============
-        function showList() {
-            document.getElementById('authSection').style.display = 'none';
-            document.getElementById('listSection').style.display = 'block';
-        }
+      const sepRaw = document.getElementById('sepInput').value || '----';
+      const seps  = sepRaw.split('|').map(s => s.trim()).filter(Boolean);
+      const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+      const parsed = [];
 
-        async function loadAccounts() {
-            try {
-                const res = await fetch(`${API_URL}/api/user/records`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: currentUser, password: currentPassword })
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    renderList(data.records || []);
-                } else if (res.status === 401) {
-                    logout();
-                    showMsg('登录已过期，请重新登录', 'error');
-                }
-            } catch (e) {
-                console.error(e);
-            }
-        }
-
-        function renderList(records) {
-            document.getElementById('totalCount').textContent = records.reduce((s, r) => s + (r.accounts?.length || 0), 0);
-            document.getElementById('groupCount').textContent = records.length;
-            const container = document.getElementById('accountList');
-            if (records.length === 0) {
-                container.innerHTML = '<div style="text-align:center;color:#999;padding:40px 0;">暂无数据，点击上方添加分组</div>';
-                return;
-            }
-            container.innerHTML = records.map((r, i) => `
-                <div class="account-item" onclick="event.stopPropagation();">
-                    <div class="name" onclick="toggleGroup(${i})" style="cursor:pointer;">▶ ${r.groupName}</div>
-                    <div class="time">${r.accounts.length} 个账号</div>
-                    <div class="accounts" id="group-${i}" style="display:none;">
-                        ${r.accounts.map(a => `<div onclick="copyText('${a.replace(/'/g, "\\'")}')" style="cursor:pointer;padding:6px 0;border-bottom:1px dashed #eee;">${a}</div>`).join('')}
-                    </div>
-                </div>
-            `).join('');
-            container.classList.add('active');
-        }
-
-        function toggleGroup(i) {
-            const el = document.getElementById(`group-${i}`);
-            const nameEl = document.querySelector(`.account-item:nth-child(${i+1}) .name`);
-            if (el.style.display === 'none') {
-                el.style.display = 'block';
-                nameEl.textContent = '▼ ' + nameEl.textContent.replace(/^[▶▼]\s*/, '');
+      for (const line of lines) {
+        let parts = null;
+        for (const sep of seps) {
+          if (line.includes(sep)) {
+            const idx1  = line.indexOf(sep);
+            const rest  = line.substring(idx1 + sep.length);
+            const idx2  = rest.indexOf(sep);
+            if (idx2 !== -1) {
+              parts = [
+                line.substring(0, idx1).trim(),
+                rest.substring(0, idx2).trim(),
+                rest.substring(idx2 + sep.length).trim()
+              ];
             } else {
-                el.style.display = 'none';
-                nameEl.textContent = '▶ ' + nameEl.textContent.replace(/^[▶▼]\s*/, '');
+              parts = [line.substring(0, idx1).trim(), rest.trim(), ''];
             }
+            break;
+          }
         }
+        if (parts) {
+          parsed.push({ account: parts[0], password: parts[1], email: parts[2] });
+        } else {
+          const auto = autoSplit(line);
+          if (auto) parsed.push(auto);
+        }
+      }
 
-        function showAddModal() {
-            document.getElementById('addModal').classList.add('show');
-            document.getElementById('groupName').value = '';
-            document.getElementById('accountsText').value = '';
-        }
-        function closeAddModal() {
-            document.getElementById('addModal').classList.remove('show');
-        }
+      if (parsed.length === 0) { showToast('未能识别有效账号，请检查分隔符'); return; }
 
-        async function addGroup() {
-            const groupName = document.getElementById('groupName').value.trim();
-            const text = document.getElementById('accountsText').value.trim();
-            if (!groupName) return alert('请输入分组名称');
-            if (!text) return alert('请输入账号信息');
-            const accounts = text.split('\n').map(s => s.trim()).filter(Boolean);
-            if (accounts.length === 0) return alert('请输入至少一条账号信息');
-            try {
-                const res = await fetch(`${API_URL}/api/user/records`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: currentUser, password: currentPassword, groupName, accounts })
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    closeAddModal();
-                    loadAccounts();
-                } else {
-                    alert(data.error || '添加失败');
-                }
-            } catch (e) {
-                alert('网络错误');
-            }
-        }
+      accounts      = parsed;
+      showPasswords = {};
+      usedAccounts  = {};
+      saveToLocal();
+      renderAll();
+      document.getElementById('btnShare').classList.add('active');
+      document.getElementById('btnQR').classList.add('active');
+      // 显示分享记录按钮
+      const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
+      if (records.length > 0) {
+        document.getElementById('btnRecords').classList.add('active');
+      }
+      showToast('解析成功 ' + parsed.length + ' 条账号，可分享！');
+    }
 
-        // ============ 复制 & 分享 ============
-        function copyText(text) {
-            navigator.clipboard.writeText(text).then(() => {
-                const toast = document.getElementById('copyToast');
-                toast.textContent = `已复制: ${text.substring(0,20)}...`;
-                toast.classList.add('show');
-                setTimeout(() => toast.classList.remove('show'), 2000);
-            });
+    function autoSplit(line) {
+      const delimiters = ['----', '---', '--', '|', ':', '\t'];
+      for (const d of delimiters) {
+        if (line.includes(d)) {
+          const parts = line.split(d).map(s => s.trim());
+          if (parts.length >= 2) return { account: parts[0], password: parts[1], email: parts[2] || '' };
         }
+      }
+      return null;
+    }
 
-        function showShareModal() {
-            const link = `${window.location.origin}/share.html?data=${btoa(JSON.stringify({ u: currentUser, p: currentPassword }))}`;
-            document.getElementById('shareLink').textContent = link;
-            document.getElementById('shareModal').classList.add('show');
+    // ══════════════════════════════════════════════════════
+    //  生成分享链接（快速响应版）
+    // ══════════════════════════════════════════════════════
+    async function generateShareLink() {
+      if (accounts.length === 0) { showToast('请先解析账号数据'); return; }
+
+      // 1. 立即生成本地压缩链接（无需等待云端）
+      const shareData = { accounts: accounts };
+      const jsonStr  = JSON.stringify(shareData);
+      let encoded    = '';
+      try {
+        encoded = LZString.compressToEncodedURIComponent(jsonStr);
+      } catch(e) {
+        encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+      }
+      const localUrl = window.location.origin + window.location.pathname + '#' + encoded;
+      showShareSuccess(localUrl);
+      showToast('链接已生成，正在上传到云端同步...');
+
+      // 2. 后台上传到云端（不阻塞UI）
+      (async () => {
+        const cloudResult = await createCloudShare();
+        if (cloudResult.success) {
+          currentBinId = cloudResult.binId;
+          isCloudShare = true;
+          isSharedView = false;
+
+          localStorage.setItem('account_tool_shareId', currentBinId);
+          document.getElementById('btnMyShare').classList.add('active');
+
+          // 更新链接显示为云端版本
+          const cloudUrl = window.location.origin + window.location.pathname + '#jb_' + currentBinId;
+          document.getElementById('shareLinkInput').value = cloudUrl;
+          document.getElementById('shareLinkCopy').value = cloudUrl;
+
+          // 再次复制云端链接
+          copyShareLink();
+
+          startPolling();
+          showToast('✅ 云端同步已就绪！其他人使用时你会看到标记');
+
+          // 通知用户（如果用户还在页面上）
+          document.getElementById('btnRecords').classList.add('active');
+        } else {
+          showToast('⚠️ 云端上传失败，但本地链接仍可使用');
         }
-        function closeShareModal() {
-            document.getElementById('shareModal').classList.remove('show');
+      })();
+    }
+
+    function showShareSuccess(shareUrl) {
+      document.getElementById('shareLinkInput').value = shareUrl;
+      document.getElementById('shareLinkCopy').value = shareUrl;
+      document.getElementById('shareBanner').classList.add('active');
+      document.getElementById('shareSuccess').classList.add('active');
+      copyShareLink();
+    }
+
+    function copyShareLink() {
+      const link = document.getElementById('shareLinkInput').value || document.getElementById('shareLinkCopy').value;
+      if (!link) return;
+      copyText(link, null, null, true);
+    }
+
+    // ─── 显示"我的分享" ───────────────────────────────────
+    function showMyShare() {
+      const shareId = localStorage.getItem('account_tool_shareId');
+      if (!shareId) {
+        showToast('没有找到已分享的记录，请先生成分享链接');
+        return;
+      }
+      const shareUrl = window.location.origin + window.location.pathname + '#jb_' + shareId;
+      document.getElementById('shareLinkInput').value = shareUrl;
+      document.getElementById('shareLinkCopy').value = shareUrl;
+      document.getElementById('shareBanner').classList.add('active');
+      document.getElementById('shareSuccess').classList.add('active');
+
+      // 如果当前没有轮询，开始轮询
+      if (!pollTimer && shareId) {
+        currentBinId = shareId;
+        startPolling();
+        showToast('已开始监听分享状态');
+      }
+    }
+
+    // ══════════════════════════════════════════════════════
+    //  二维码（使用 goqr.me API，国内可访问）
+    // ══════════════════════════════════════════════════════
+    function toggleQR() {
+      const wrap = document.getElementById('qrCodeWrap');
+      if (wrap.classList.contains('active')) {
+        wrap.classList.remove('active');
+        return;
+      }
+
+      const shareLink = document.getElementById('shareLinkInput').value;
+      if (!shareLink) {
+        showToast('请先生成分享链接');
+        return;
+      }
+
+      // 使用 goqr.me API（国内可访问）
+      const encodedLink = encodeURIComponent(shareLink);
+      const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodedLink;
+
+      document.getElementById('qrCodeCanvas').innerHTML =
+        '<img src="' + qrUrl + '" alt="二维码" style="width:200px;height:200px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);" onerror="this.onerror=null;this.src=\'\';this.parentElement.innerHTML=\'<div style=padding:20px;color:#999;font-size:14px>二维码加载失败<br>请复制链接手动分享</div>\';" />';
+
+      wrap.classList.add('active');
+    }
+
+    // ══════════════════════════════════════════════════════
+    //  渲染
+    // ══════════════════════════════════════════════════════
+    function renderAll() {
+      document.getElementById('statsText').textContent = '共 ' + accounts.length + ' 条账号';
+
+      const usedCount = Object.keys(usedAccounts).filter(k => usedAccounts[k]).length;
+      const usedCountEl = document.getElementById('usedCount');
+      usedCountEl.textContent = '已使用 ' + usedCount + ' 条';
+      if (usedCount > 0) {
+        usedCountEl.classList.add('has-used');
+      } else {
+        usedCountEl.classList.remove('has-used');
+      }
+
+      if (accounts.length === 0) {
+        document.getElementById('cardList').innerHTML   = '<div class="empty-tip">暂无数据<br>请在上方粘贴账号信息</div>';
+        document.getElementById('tableBody').innerHTML    = '<tr><td colspan="5" class="empty-tip">暂无数据，请在上方粘贴账号信息并点击「解析数据」</td></tr>';
+        return;
+      }
+
+      // ─── 手机版卡片 ───────────────────────────────────────
+      document.getElementById('cardList').innerHTML = accounts.map((item, i) => {
+        const visible  = showPasswords[i] || allPwVisible;
+        const pwDisplay = visible ? escHtml(item.password) : '••••••••••';
+        const eyeIcon = visible ? '🙈' : '👁';
+        const isUsed  = usedAccounts[i];
+        const usedClass  = isUsed ? ' used' : '';
+        const usedBadge = isUsed
+          ? '<span class="used-badge active">已使用</span>'
+          : '<span class="used-badge">未使用</span>';
+        return '<div class="account-card' + usedClass + '">' +
+          '<div class="card-header">' +
+            '<span class="card-num">' + (i + 1) + '</span>' +
+            usedBadge +
+            '<button class="btn-copy" onclick="copyText(\'' + escAttr(item.account) + '\', this, ' + i + ')">复制账号</button>' +
+          '</div>' +
+          '<div class="card-row">' +
+            '<span class="card-label">账号</span>' +
+            '<div class="card-value-wrap">' +
+              '<span class="card-value">' + escHtml(item.account) + '</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="card-row">' +
+            '<span class="card-label">密码</span>' +
+            '<div class="card-value-wrap">' +
+              '<span class="card-value ' + (visible ? '' : 'masked') + '">' + pwDisplay + '</span>' +
+              '<span class="toggle-pw" onclick="togglePassword(' + i + ')">' + eyeIcon + '</span>' +
+              '<button class="btn-copy" onclick="copyText(\'' + escAttr(item.password) + '\', this, ' + i + ')">复制</button>' +
+            '</div>' +
+          '</div>' +
+          (item.email ? '<div class="card-row">' +
+            '<span class="card-label">邮箱</span>' +
+            '<div class="card-value-wrap">' +
+              '<span class="card-value">' + escHtml(item.email) + '</span>' +
+              '<button class="btn-copy" onclick="copyText(\'' + escAttr(item.email) + '\', this, ' + i + ')">复制</button>' +
+            '</div>' +
+          '</div>' : '') +
+          '<button class="btn-copy-all" onclick="copyAll(' + i + ', this)">📋 全部复制（账号----密码----邮箱）</button>' +
+        '</div>';
+      }).join('');
+
+      // ─── 桌面版表格 ───────────────────────────────────────
+      document.getElementById('tableBody').innerHTML = accounts.map((item, i) => {
+        const visible   = showPasswords[i] || allPwVisible;
+        const pwDisplay = visible ? escHtml(item.password) : '••••••••••';
+        const eyeIcon   = visible ? '🙈' : '👁';
+        const isUsed    = usedAccounts[i];
+        const usedClass  = isUsed ? ' used-row' : '';
+        return '<tr class="' + usedClass + '">' +
+          '<td class="num">' + (i + 1) + '</td>' +
+          '<td><div class="cell-inner"><span class="cell-value">' + escHtml(item.account) + '</span><button class="btn-copy-small" onclick="copyText(\'' + escAttr(item.account) + '\', this)">复制</button></div></td>' +
+          '<td><div class="cell-inner"><span class="cell-value ' + (visible ? '' : 'masked') + '">' + pwDisplay + '</span><span class="toggle-pw" onclick="togglePassword(' + i + ')">' + eyeIcon + '</span><button class="btn-copy-small" onclick="copyText(\'' + escAttr(item.password) + '\', this)">复制</button></div></td>' +
+          '<td><div class="cell-inner"><span class="cell-value">' + escHtml(item.email) + '</span>' + (item.email ? '<button class="btn-copy-small" onclick="copyText(\'' + escAttr(item.email) + '\', this)">复制</button>' : '') + '</div></td>' +
+          '<td style="text-align:right"><button class="btn-copy-all' + (isUsed ? '' : '') + '" onclick="copyAll(' + i + ', this)">' + (isUsed ? '✓ 已使用' : '全复制') + '</button></td>' +
+        '</tr>';
+      }).join('');
+    }
+
+    function togglePassword(idx) {
+      showPasswords[idx] = !showPasswords[idx];
+      renderAll();
+    }
+
+    function toggleAllPasswords() {
+      allPwVisible = !allPwVisible;
+      showPasswords = {};
+      renderAll();
+    }
+
+    // ══════════════════════════════════════════════════════
+    //  复制
+    // ══════════════════════════════════════════════════════
+    function copyText(text, btn, accountIdx, isLink) {
+      if (typeof accountIdx === 'number' && accountIdx >= 0) {
+        usedAccounts[accountIdx] = true;
+        saveToLocal();
+        // 如果是在云端分享模式下，同步到云端
+        if (isCloudShare || (isSharedView && currentBinId)) {
+          updateCloudUsed();
         }
-        function copyShareLink() {
-            const link = document.getElementById('shareLink').textContent;
-            navigator.clipboard.writeText(link).then(() => {
-                const btn = document.querySelector('.share-btn');
-                btn.textContent = '✓ 已复制！';
-                setTimeout(() => btn.textContent = '📋 复制链接', 2000);
-            });
+      }
+      navigator.clipboard.writeText(text).then(() => {
+        showToast(isLink ? '分享链接已复制！' : '已复制: ' + (text.length > 20 ? text.substring(0, 20) + '...' : text));
+        if (btn) {
+          const orig = btn.textContent;
+          btn.textContent = '已复制✓';
+          btn.classList.add('copied');
+          setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
         }
-    </script>
+        setTimeout(() => renderAll(), 50);
+      }).catch(() => {
+        // 降级方案
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast(isLink ? '分享链接已复制！' : '已复制！');
+        setTimeout(() => renderAll(), 50);
+      });
+    }
+
+    function copyAll(idx, btn) {
+      const item = accounts[idx];
+      const fullText = [item.account, item.password, item.email].filter(Boolean).join('----');
+      usedAccounts[idx] = true;
+      saveToLocal();
+      if (isCloudShare || (isSharedView && currentBinId)) {
+        updateCloudUsed();
+      }
+      copyText(fullText, null, idx, false);
+      if (btn) {
+        const orig = btn.textContent;
+        btn.textContent = '已复制✓';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
+      }
+    }
+
+    function resetUsed() {
+      if (Object.keys(usedAccounts).length === 0) {
+        showToast('暂无已标记的账号'); return;
+      }
+      if (!confirm('确定要重置所有已使用标记吗？')) return;
+      usedAccounts = {};
+      if (currentBinId) {
+        updateCloudUsed();
+      }
+      saveToLocal();
+      renderAll();
+      showToast('已重置所有标记');
+    }
+
+    // ══════════════════════════════════════════════════════
+    //  清空
+    // ══════════════════════════════════════════════════════
+    function clearAll() {
+      if (accounts.length === 0 && !document.getElementById('rawInput').value) {
+        showToast('已经是空的了'); return;
+      }
+      if (!confirm('确定要清空所有数据吗？')) return;
+      accounts      = [];
+      showPasswords = {};
+      usedAccounts  = {};
+      currentBinId  = null;
+      isCloudShare  = false;
+      stopPolling();
+      document.getElementById('rawInput').value = '';
+      document.getElementById('btnShare').classList.remove('active');
+      document.getElementById('btnQR').classList.remove('active');
+      document.getElementById('btnMyShare').classList.remove('active');
+      document.getElementById('shareBanner').classList.remove('active');
+      document.getElementById('shareSuccess').classList.remove('active');
+      document.getElementById('qrCodeWrap').classList.remove('active');
+      localStorage.removeItem('account_tool_data');
+      localStorage.removeItem('account_tool_raw');
+      localStorage.removeItem('account_tool_shareId');
+      renderAll();
+      showToast('已清空');
+    }
+
+    // ══════════════════════════════════════════════════════
+    //  本地保存 / 读取
+    // ══════════════════════════════════════════════════════
+    function saveToLocal() {
+      localStorage.setItem('account_tool_data', JSON.stringify({
+        accounts: accounts,
+        usedAccounts: usedAccounts
+      }));
+      localStorage.setItem('account_tool_raw', document.getElementById('rawInput').value);
+    }
+
+    function escHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function escAttr(str) {
+      if (!str) return '';
+      return str.replace(/'/g, "\\'").replace(/\\/g, "\\\\");
+    }
+
+    let toastTimer = null;
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+    }
+
+    // ══════════════════════════════════════════════════════
+    //  分享记录弹窗
+    // ══════════════════════════════════════════════════════
+    async function showRecords() {
+      const modal = document.getElementById('recordsModal');
+      const list  = document.getElementById('recordsList');
+      const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
+
+      if (records.length === 0) {
+        list.innerHTML = '<div style="text-align:center;color:#999;padding:40px 0;font-size:14px;">暂无分享记录<br>快去分享你的第一条账号吧！</div>';
+      } else {
+        // 为每个记录获取最新使用状态
+        let html = '';
+        for (let i = 0; i < records.length; i++) {
+          const r = records[i];
+          const shareUrl = window.location.origin + window.location.pathname + '#jb_' + r.binId;
+          const timeStr  = new Date(r.createdAt).toLocaleString('zh-CN');
+          const noteDisplay = r.note ? '<span style="font-size:12px;color:#9c27b0;background:#f3e5f5;padding:2px 8px;border-radius:8px;margin-left:8px;">📝 ' + escHtml(r.note) + '</span>' : '';
+          html += '<div style="border:1px solid #eee;border-radius:12px;padding:14px;margin-bottom:12px;background:#fafafa;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">' +
+              '<span style="font-size:13px;color:#999;">' + timeStr + '</span>' +
+              '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+                '<span style="font-size:12px;color:#666;background:#e8f5e9;padding:2px 8px;border-radius:10px;">共 ' + r.accountCount + ' 条</span>' +
+                noteDisplay +
+              '</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">' +
+              '<button onclick="copyRecordLink(\'' + r.binId + '\')" style="background:#4caf50;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer;">📋 复制链接</button>' +
+              '<button onclick="openRecord(\'' + r.binId + '\')" style="background:#2196f3;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer;">🔗 打开查看</button>' +
+              '<button onclick="checkRecordUsed(\'' + r.binId + '\', this)" style="background:#ff9800;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer;">🔄 刷新状态</button>' +
+              '<button onclick="deleteRecord(' + i + ')" style="background:#f44336;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer;">🗑 删除</button>' +
+            '</div>' +
+            '<div style="display:flex;align-items:center;gap:8px;">' +
+              '<input type="text" id="noteInput_' + i + '" value="' + escHtml(r.note || '') + '" placeholder="添加备注..." style="flex:1;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;outline:none;" />' +
+              '<button onclick="updateRecordNote(' + i + ', document.getElementById(\'noteInput_' + i + '\').value)" style="background:#9c27b0;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:13px;cursor:pointer;">保存备注</button>' +
+            '</div>' +
+            '<div id="recordStatus_' + r.binId + '" style="margin-top:8px;font-size:12px;color:#999;"></div>' +
+          '</div>';
+        }
+        list.innerHTML = html;
+
+        // 自动刷新所有记录的使用状态
+        for (const r of records) {
+          checkRecordUsed(r.binId, null, false);
+        }
+      }
+
+      modal.style.display = 'flex';
+    }
+
+    function closeRecords() {
+      document.getElementById('recordsModal').style.display = 'none';
+    }
+
+    function copyRecordLink(binId) {
+      const shareUrl = window.location.origin + window.location.pathname + '#jb_' + binId;
+      copyText(shareUrl, null, null, true);
+    }
+
+    async function openRecord(binId) {
+      const shareUrl = window.location.origin + window.location.pathname + '#jb_' + binId;
+      window.open(shareUrl, '_blank');
+    }
+
+    async function checkRecordUsed(binId, btn, showToastFlag) {
+      if (showToastFlag !== false) showToastFlag = true;
+      try {
+        const resp = await fetch(JSONBIN_API + '/b/' + binId + '/latest', {
+          method: 'GET',
+          headers: { 'X-Master-Key': JSONBIN_KEY }
+        });
+        const result = await resp.json();
+        let usedCount = 0;
+        if (result.record && result.record.usedAccounts) {
+          usedCount = Object.keys(result.record.usedAccounts).filter(k => result.record.usedAccounts[k]).length;
+        } else if (result.usedAccounts) {
+          usedCount = Object.keys(result.usedAccounts).filter(k => result.usedAccounts[k]).length;
+        }
+        const statusEl = document.getElementById('recordStatus_' + binId);
+        if (statusEl) {
+          statusEl.innerHTML = '✅ 已使用 <strong style="color:#ff9800;">' + usedCount + '</strong> 条账号' +
+            (usedCount > 0 ? ' <span style="color:#4caf50;">（已实时同步）</span>' : ' <span style="color:#999;">（暂无使用记录）</span>');
+          statusEl.style.color = usedCount > 0 ? '#333' : '#999';
+        }
+        // 更新记录中的 usedCount
+        const records = JSON.parse(localStorage.getItem('account_tool_records') || '[]');
+        const rec = records.find(r => r.binId === binId);
+        if (rec) rec.usedCount = usedCount;
+        localStorage.setItem('account_tool_records', JSON.stringify(records));
+
+        if (showToastFlag) showToast('已刷新：' + usedCount + ' 条已使用');
+      } catch (e) {
+        if (showToastFlag) showToast('刷新失败，请检查网络');
+      }
+    }
+
+    // 点击弹窗背景关闭
+    document.addEventListener('click', function(e) {
+      const modal = document.getElementById('recordsModal');
+      if (e.target === modal) closeRecords();
+    });
+  </script>
 </body>
 </html>
