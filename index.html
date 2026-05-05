@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device=width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>账号分离一键复制工具</title>
   <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/lib/lz-string.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
@@ -183,6 +183,14 @@
     }
     .btn-qr.active { display: block; }
     .btn-qr:hover { background: #f57c00; }
+
+    .btn-my-share {
+      background: #9c27b0; color: #fff; border: none; border-radius: 8px;
+      padding: 11px 16px; font-size: 15px; cursor: pointer; font-weight: 600;
+      transition: background 0.2s; display: none;
+    }
+    .btn-my-share.active { display: block; }
+    .btn-my-share:hover { background: #7b1fa2; }
 
     .btn-clear {
       background: #f5f5f5; color: #666; border: 1px solid #ddd; border-radius: 8px;
@@ -400,13 +408,14 @@
       <div class="sep-setting">
         <label>分隔符：</label>
         <input id="sepInput" value="----" placeholder="----" />
-        <span class="hint">格式：账号[分隔符]密码[分隔符]邮箱，多个用竖线隔开</span>
+        <span class="hint">格式：账号[分隔符]密码[分隔符]邮箱，多个用换行隔开</span>
       </div>
       <textarea id="rawInput" placeholder="粘贴账号数据，每行一条，示例：&#10;i3mk1f7@llt.lingeringp.com----1FLZzqyJRu----bs0gub8cu3@126.com&#10;kskg4h3@llt.lingeringp.com----aPI3MWOlkq----jfp983xiz0@126.com"></textarea>
       <div class="parse-btn-wrap">
         <button class="btn-parse" onclick="parseData()">✨ 解析数据</button>
         <button class="btn-share" id="btnShare" onclick="generateShareLink()">🔗 分享链接</button>
         <button class="btn-qr" id="btnQR" onclick="toggleQR()">📱 二维码</button>
+        <button class="btn-my-share" id="btnMyShare" onclick="showMyShare()">📜 我的分享</button>
         <button class="btn-clear" onclick="clearAll()">清空</button>
       </div>
     </div>
@@ -440,111 +449,96 @@
 
     <div class="share-info">
       💡 <strong>使用方法：</strong>粘贴账号 → 解析 → 点击「<strong>分享链接</strong>」或「<strong>二维码</strong>」→ 发送链接/二维码给朋友，他们打开即可一键复制！<br>
-      🔒 <strong>隐私说明：</strong>标记数据保存在云端，刷新不丢失，分享者可实时查看使用状态。
+      🔒 <strong>隐私说明：</strong>标记数据保存在云端(JSONBin)，刷新不丢失，分享者可实时查看使用状态。
     </div>
   </div>
 
   <div id="toast">已复制！</div>
 
   <script>
-    let accounts = [];
-    let showPasswords = {};
-    let usedAccounts = {};
-    let allPwVisible = false;
-    let isSharedView = false;
-    let isCloudShare = false;
-    let currentShareId = null;
-    let pollTimer = null;
+    // ═══════════════════════════════════════════════════════
+    //  JSONBin 配置（用户提供的 API Key）
+    // ═══════════════════════════════════════════════════════
+    const JSONBIN_API = 'https://api.jsonbin.io/v3';
+    const JSONBIN_KEY  = '$2a$10$YcuC/l.PRLR9qXlvVmWae.HGMwNkhgxNDx/FNotNyyIip.ujfyujS';
 
-    // ─── 云端分享：使用免费 CORS 代理 + JSON 存储 ────────────────────────────
-    // 使用 deta.space (免费云数据库，支持 CORS)
-    const DETA_BASE_URL = 'https://database.deta.sh/v1';
-    const DETA_PROJECT_ID = 'b0jowx6d';  // 公共测试项目ID
-    const DETA_API_KEY = 'b0jowx6d_6hEpZKf3m8qLP8nPCZq1dfTJ9qDu5QjW';  // 公共测试 API Key
+    // ═══════════════════════════════════════════════════════
+    //  全局状态
+    // ═══════════════════════════════════════════════════════
+    let accounts       = [];
+    let showPasswords  = {};
+    let usedAccounts   = {};   // { index: true }
+    let allPwVisible   = false;
+    let isSharedView   = false;
+    let isCloudShare   = false;
+    let currentBinId   = null;  // JSONBin bin id
+    let pollTimer      = null;
 
-    // 降级方案：使用 localStorage + URL hash 同步
-    function getCloudShareUrl(shareId) {
-      return window.location.origin + window.location.pathname + '#cs_' + shareId;
-    }
-
-    // ─── 创建云端分享 ─────────────────────────────────────
+    // ─── 创建云端分享（JSONBin）────────────────────────────
     async function createCloudShare() {
-      try {
-        const shareId = 's_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 8);
-        const data = {
-          accounts: accounts,
-          usedAccounts: usedAccounts,
-          createdAt: Date.now()
-        };
-
-        // 尝试使用 Deta (如果失败，降级到 URL hash)
-        try {
-          const resp = await fetch(DETA_BASE_URL + '/' + DETA_PROJECT_ID + '/account_shares/items/' + shareId, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Api-Key': DETA_API_KEY
-            },
-            body: JSON.stringify(data)
-          });
-          if (resp.ok) {
-            return { success: true, shareId: shareId, useCloud: true };
-          }
-        } catch(e) {
-          console.log('Cloud save failed, using fallback');
-        }
-
-        // 降级：保存到 localStorage，分享者自己打开分享链接时从 localStorage 读取
-        localStorage.setItem('cloud_share_' + shareId, JSON.stringify(data));
-        return { success: true, shareId: shareId, useCloud: false };
-      } catch(e) {
-        console.error('Create share error:', e);
-        return { success: false, error: e.message };
-      }
-    }
-
-    // ─── 读取云端数据 ─────────────────────────────────────
-    async function readCloudData(shareId) {
-      // 先尝试从云端读取
-      try {
-        const resp = await fetch(DETA_BASE_URL + '/' + DETA_PROJECT_ID + '/account_shares/items/' + shareId, {
-          method: 'GET',
-          headers: { 'X-Api-Key': DETA_API_KEY }
-        });
-        if (resp.ok) {
-          const result = await resp.json();
-          return result;
-        }
-      } catch(e) {}
-
-      // 降级：从 localStorage 读取
-      const localData = localStorage.getItem('cloud_share_' + shareId);
-      if (localData) {
-        return JSON.parse(localData);
-      }
-      return null;
-    }
-
-    // ─── 更新云端已使用状态 ────────────────────────────────
-    async function updateCloudUsed() {
-      if (!currentShareId) return;
-      const data = {
+      const body = JSON.stringify({
         accounts: accounts,
         usedAccounts: usedAccounts,
         createdAt: Date.now()
-      };
+      });
       try {
-        await fetch(DETA_BASE_URL + '/' + DETA_PROJECT_ID + '/account_shares/items/' + currentShareId, {
+        const resp = await fetch(JSONBIN_API + '/b', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Master-Key': JSONBIN_KEY
+          },
+          body: body
+        });
+        const result = await resp.json();
+        if (result.metadata && result.metadata.id) {
+          return { success: true, binId: result.metadata.id };
+        }
+        throw new Error('创建失败');
+      } catch (e) {
+        console.error('createCloudShare error:', e);
+        return { success: false };
+      }
+    }
+
+    // ─── 读取云端数据 ──────────────────────────────────────
+    async function readCloudData(binId) {
+      try {
+        const resp = await fetch(JSONBIN_API + '/b/' + binId + '/latest', {
+          method: 'GET',
+          headers: { 'X-Master-Key': JSONBIN_KEY }
+        });
+        const result = await resp.json();
+        // JSONBin 返回格式：{ record: {...} }
+        if (result.record) return result.record;
+        // 也可能直接返回数据
+        if (result.accounts) return result;
+        return null;
+      } catch (e) {
+        console.error('readCloudData error:', e);
+        return null;
+      }
+    }
+
+    // ─── 更新云端 usedAccounts ─────────────────────────────
+    async function updateCloudUsed() {
+      if (!currentBinId) return;
+      const body = JSON.stringify({
+        accounts: accounts,
+        usedAccounts: usedAccounts,
+        createdAt: Date.now()
+      });
+      try {
+        await fetch(JSONBIN_API + '/b/' + currentBinId, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'X-Api-Key': DETA_API_KEY
+            'X-Master-Key': JSONBIN_KEY
           },
-          body: JSON.stringify(data)
+          body: body
         });
-      } catch(e) {
-        // 降级到 localStorage
-        localStorage.setItem('cloud_share_' + currentShareId, JSON.stringify(data));
+      } catch (e) {
+        console.error('updateCloudUsed error:', e);
       }
     }
 
@@ -552,11 +546,12 @@
     function startPolling() {
       if (pollTimer) clearInterval(pollTimer);
       pollTimer = setInterval(async () => {
-        if (!currentShareId) return;
-        const data = await readCloudData(currentShareId);
+        if (!currentBinId) return;
+        const data = await readCloudData(currentBinId);
         if (data && data.usedAccounts) {
           const oldCount = Object.keys(usedAccounts).filter(k => usedAccounts[k]).length;
-          usedAccounts = data.usedAccounts;
+          // 合并云端和本地的 usedAccounts
+          usedAccounts = { ...usedAccounts, ...data.usedAccounts };
           const newCount = Object.keys(usedAccounts).filter(k => usedAccounts[k]).length;
           renderAll();
           if (newCount > oldCount && !isSharedView) {
@@ -566,51 +561,45 @@
       }, 5000);
     }
 
-    // ─── 获取分享模式的唯一标识 ─────────────────────────────
-    function getShareKey() {
-      return 'account_tool_used_' + (currentShareId || window.location.hash.substring(1, 30));
+    // ─── 停止轮询 ─────────────────────────────────────────
+    function stopPolling() {
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
     }
 
-    // ─── 初始化 ──────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════
+    //  初始化：页面加载时恢复数据
+    // ═══════════════════════════════════════════════════════
     window.addEventListener('DOMContentLoaded', async () => {
       const hash = window.location.hash;
       if (hash && hash.length > 1) {
         const hashContent = hash.substring(1);
 
-        // 检查是否为云端分享链接（格式：cs_<shareId>）
-        if (hashContent.startsWith('cs_')) {
-          const shareId = hashContent.substring(3);
-          currentShareId = shareId;
+        // 检查是否为云端分享链接（格式：jb_<binId>）
+        if (hashContent.startsWith('jb_')) {
+          const binId = hashContent.substring(3);
+          currentBinId = binId;
           isCloudShare = true;
           isSharedView = true;
 
-          const data = await readCloudData(shareId);
+          const data = await readCloudData(binId);
           if (data && data.accounts) {
-            accounts = data.accounts || [];
+            accounts     = data.accounts || [];
             usedAccounts = data.usedAccounts || {};
 
-            // 从 localStorage 恢复本地标记
-            const localUsed = localStorage.getItem(getShareKey());
-            if (localUsed) {
-              try {
-                const localData = JSON.parse(localUsed);
-                usedAccounts = { ...usedAccounts, ...localData };
-              } catch(e) {}
-            }
-
-            document.getElementById('viewModeBanner').innerHTML = '☁️ 云端同步模式，实时同步中...';
-            document.getElementById('viewModeBanner').classList.add('active', 'cloud');
+            // 界面调整为查看模式
+            const banner = document.getElementById('viewModeBanner');
+            banner.innerHTML = '☁️ 云端同步模式，已使用状态实时同步中...';
+            banner.classList.add('active', 'cloud');
             document.getElementById('shareBanner').style.display = 'none';
-            document.getElementById('rawInput').style.display = 'none';
+            document.getElementById('rawInput').style.display   = 'none';
             document.querySelector('.sep-setting').style.display = 'none';
-            document.querySelector('.hint').style.display = 'none';
-            document.querySelector('.btn-parse').style.display = 'none';
-            document.querySelector('.btn-clear').style.display = 'none';
+            document.querySelector('.hint').style.display        = 'none';
+            document.querySelector('.btn-parse').style.display  = 'none';
+            document.querySelector('.btn-clear').style.display  = 'none';
             document.querySelector('.share-info').style.display = 'none';
             renderAll();
 
-            // 只有分享者才轮询（通过检测是否有写权限来判断）
-            // 简单策略：分享者打开自己的链接时也轮询
+            // 使用者也轮询，这样多设备之间可以互相同步
             startPolling();
             showToast('已加载 ' + accounts.length + ' 条账号，实时同步中');
           } else {
@@ -619,62 +608,63 @@
           return;
         }
 
-        // 旧版：本地压缩/Base64链接
+        // 旧版：本地压缩 / Base64 链接
         try {
           let jsonStr = '';
-          try {
-            jsonStr = LZString.decompressFromEncodedURIComponent(hashContent);
-          } catch(e) {}
+          try { jsonStr = LZString.decompressFromEncodedURIComponent(hashContent); } catch(e) {}
           if (!jsonStr) {
-            try {
-              jsonStr = decodeURIComponent(atob(hashContent));
-            } catch(e) {}
+            try { jsonStr = decodeURIComponent(atob(hashContent)); } catch(e) {}
           }
           if (!jsonStr) return;
           const data = JSON.parse(jsonStr);
-          accounts = data.accounts || data;
+          accounts     = data.accounts || data;
           usedAccounts = data.usedAccounts || {};
-          const shareKey = getShareKey();
-          const savedUsed = localStorage.getItem(shareKey);
-          if (savedUsed) {
-            try { usedAccounts = JSON.parse(savedUsed); } catch(e) {}
-          }
           isSharedView = true;
+
           document.getElementById('viewModeBanner').classList.add('active');
-          document.getElementById('shareBanner').style.display = 'none';
-          document.getElementById('rawInput').style.display = 'none';
-          document.querySelector('.sep-setting').style.display = 'none';
-          document.querySelector('.hint').style.display = 'none';
-          document.querySelector('.btn-parse').style.display = 'none';
-          document.querySelector('.btn-clear').style.display = 'none';
-          document.querySelector('.share-info').style.display = 'none';
+          document.getElementById('shareBanner').style.display   = 'none';
+          document.getElementById('rawInput').style.display     = 'none';
+          document.querySelector('.sep-setting').style.display   = 'none';
+          document.querySelector('.hint').style.display          = 'none';
+          document.querySelector('.btn-parse').style.display     = 'none';
+          document.querySelector('.btn-clear').style.display     = 'none';
+          document.querySelector('.share-info').style.display    = 'none';
           renderAll();
           showToast('已加载 ' + accounts.length + ' 条账号');
         } catch (e) {
-          console.error('Load error:', e);
+          console.error('Load hash error:', e);
         }
       } else {
+        // 正常模式：从 localStorage 恢复
         const saved = localStorage.getItem('account_tool_data');
         if (saved) {
           try {
             const savedData = JSON.parse(saved);
-            accounts = savedData.accounts || savedData;
+            accounts     = savedData.accounts || savedData;
             usedAccounts = savedData.usedAccounts || {};
             const savedRaw = localStorage.getItem('account_tool_raw');
             if (savedRaw) document.getElementById('rawInput').value = savedRaw;
+            // 显示按钮
+            document.getElementById('btnShare').classList.add('active');
+            document.getElementById('btnQR').classList.add('active');
+            if (localStorage.getItem('account_tool_shareId')) {
+              document.getElementById('btnMyShare').classList.add('active');
+            }
             renderAll();
           } catch(e) {}
         }
       }
     });
 
-    // ─── 解析数据 ────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════
+    //  解析数据
+    // ═══════════════════════════════════════════════════════
     function parseData() {
       const raw = document.getElementById('rawInput').value.trim();
       if (!raw) { showToast('请先输入账号数据'); return; }
 
       const sepRaw = document.getElementById('sepInput').value || '----';
-      const seps = sepRaw.split('|').map(s => s.trim()).filter(Boolean);
+      const seps  = sepRaw.split('|').map(s => s.trim()).filter(Boolean);
       const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
       const parsed = [];
 
@@ -682,11 +672,15 @@
         let parts = null;
         for (const sep of seps) {
           if (line.includes(sep)) {
-            const idx1 = line.indexOf(sep);
-            const rest = line.substring(idx1 + sep.length);
-            const idx2 = rest.indexOf(sep);
+            const idx1  = line.indexOf(sep);
+            const rest  = line.substring(idx1 + sep.length);
+            const idx2  = rest.indexOf(sep);
             if (idx2 !== -1) {
-              parts = [line.substring(0, idx1).trim(), rest.substring(0, idx2).trim(), rest.substring(idx2 + sep.length).trim()];
+              parts = [
+                line.substring(0, idx1).trim(),
+                rest.substring(0, idx2).trim(),
+                rest.substring(idx2 + sep.length).trim()
+              ];
             } else {
               parts = [line.substring(0, idx1).trim(), rest.trim(), ''];
             }
@@ -703,9 +697,9 @@
 
       if (parsed.length === 0) { showToast('未能识别有效账号，请检查分隔符'); return; }
 
-      accounts = parsed;
+      accounts      = parsed;
       showPasswords = {};
-      usedAccounts = {};
+      usedAccounts  = {};
       saveToLocal();
       renderAll();
       document.getElementById('btnShare').classList.add('active');
@@ -724,7 +718,9 @@
       return null;
     }
 
-    // ─── 生成分享链接 ───────────────────────────────────────
+    // ═══════════════════════════════════════════════════════
+    //  生成分享链接（云端同步版）
+    // ═══════════════════════════════════════════════════════
     async function generateShareLink() {
       if (accounts.length === 0) { showToast('请先解析账号数据'); return; }
 
@@ -732,41 +728,46 @@
 
       const cloudResult = await createCloudShare();
       if (!cloudResult.success) {
+        showToast('云端创建失败，已降级为本地链接');
+        // 降级：使用 LZString 压缩
         const shareData = { accounts: accounts };
-        const jsonStr = JSON.stringify(shareData);
-        let encoded = '';
+        const jsonStr   = JSON.stringify(shareData);
+        let encoded     = '';
         try {
           encoded = LZString.compressToEncodedURIComponent(jsonStr);
         } catch(e) {
           encoded = btoa(unescape(encodeURIComponent(jsonStr)));
         }
         const shareUrl = window.location.origin + window.location.pathname + '#' + encoded;
-        document.getElementById('shareLinkInput').value = shareUrl;
-        document.getElementById('shareLinkCopy').value = shareUrl;
-        document.getElementById('shareBanner').classList.add('active');
-        document.getElementById('shareSuccess').classList.add('active');
-        copyShareLink();
-        showToast('已生成本地分享链接');
+        showShareSuccess(shareUrl);
         return;
       }
 
-      currentShareId = cloudResult.shareId;
+      // 云端分享成功
+      currentBinId = cloudResult.binId;
       isCloudShare = true;
+      isSharedView = false;  // 分享者自己，不是查看模式
 
-      const shareUrl = getCloudShareUrl(currentShareId);
+      // 保存到 localStorage，方便"我的分享"功能
+      localStorage.setItem('account_tool_shareId', currentBinId);
+
+      const shareUrl = window.location.origin + window.location.pathname + '#jb_' + currentBinId;
+      showShareSuccess(shareUrl);
+
+      // 显示"我的分享"按钮
+      document.getElementById('btnMyShare').classList.add('active');
+
+      // 开始轮询，监听其他人使用的状态
+      startPolling();
+      showToast('云端分享已创建！其他人使用时你会看到标记');
+    }
+
+    function showShareSuccess(shareUrl) {
       document.getElementById('shareLinkInput').value = shareUrl;
       document.getElementById('shareLinkCopy').value = shareUrl;
       document.getElementById('shareBanner').classList.add('active');
       document.getElementById('shareSuccess').classList.add('active');
-
-      showToast('云端分享已创建！');
       copyShareLink();
-
-      // 分享者开始轮询
-      setTimeout(() => {
-        startPolling();
-        showToast('已开始监听，其他人使用时你会看到标记！');
-      }, 1000);
     }
 
     function copyShareLink() {
@@ -775,7 +776,30 @@
       copyText(link, null, null, true);
     }
 
-    // ─── 二维码 ────────────────────────────────────────────
+    // ─── 显示"我的分享" ───────────────────────────────────
+    function showMyShare() {
+      const shareId = localStorage.getItem('account_tool_shareId');
+      if (!shareId) {
+        showToast('没有找到已分享的记录，请先生成分享链接');
+        return;
+      }
+      const shareUrl = window.location.origin + window.location.pathname + '#jb_' + shareId;
+      document.getElementById('shareLinkInput').value = shareUrl;
+      document.getElementById('shareLinkCopy').value = shareUrl;
+      document.getElementById('shareBanner').classList.add('active');
+      document.getElementById('shareSuccess').classList.add('active');
+
+      // 如果当前没有轮询，开始轮询
+      if (!pollTimer && shareId) {
+        currentBinId = shareId;
+        startPolling();
+        showToast('已开始监听分享状态');
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  二维码
+    // ═══════════════════════════════════════════════════════
     function toggleQR() {
       const wrap = document.getElementById('qrCodeWrap');
       if (wrap.classList.contains('active')) {
@@ -791,24 +815,22 @@
 
       document.getElementById('qrCodeCanvas').innerHTML = '';
 
-      QRCode.toCanvas(document.getElementById('qrCodeCanvas'), shareLink, {
+      // 使用 new QRCode() 方式（更兼容）
+      new QRCode(document.getElementById('qrCodeCanvas'), {
+        text: shareLink,
         width: 200,
-        margin: 2,
-        color: {
-          dark: '#333333',
-          light: '#ffffff'
-        }
-      }, (error) => {
-        if (error) {
-          console.error('QR Code error:', error);
-          showToast('生成二维码失败');
-        }
+        height: 200,
+        colorDark: '#333333',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
       });
 
       wrap.classList.add('active');
     }
 
-    // ─── 渲染 ─────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════
+    //  渲染
+    // ═══════════════════════════════════════════════════════
     function renderAll() {
       document.getElementById('statsText').textContent = '共 ' + accounts.length + ' 条账号';
 
@@ -822,18 +844,21 @@
       }
 
       if (accounts.length === 0) {
-        document.getElementById('cardList').innerHTML = '<div class="empty-tip">暂无数据<br>请在上方粘贴账号信息</div>';
-        document.getElementById('tableBody').innerHTML = '<tr><td colspan="5" class="empty-tip">暂无数据，请在上方粘贴账号信息并点击「解析数据」</td></tr>';
+        document.getElementById('cardList').innerHTML   = '<div class="empty-tip">暂无数据<br>请在上方粘贴账号信息</div>';
+        document.getElementById('tableBody').innerHTML    = '<tr><td colspan="5" class="empty-tip">暂无数据，请在上方粘贴账号信息并点击「解析数据」</td></tr>';
         return;
       }
 
+      // ─── 手机版卡片 ───────────────────────────────────────
       document.getElementById('cardList').innerHTML = accounts.map((item, i) => {
-        const visible = showPasswords[i] || allPwVisible;
+        const visible  = showPasswords[i] || allPwVisible;
         const pwDisplay = visible ? escHtml(item.password) : '••••••••••';
         const eyeIcon = visible ? '🙈' : '👁';
-        const isUsed = usedAccounts[i];
-        const usedClass = isUsed ? ' used' : '';
-        const usedBadge = isUsed ? '<span class="used-badge active">已使用</span>' : '<span class="used-badge">未使用</span>';
+        const isUsed  = usedAccounts[i];
+        const usedClass  = isUsed ? ' used' : '';
+        const usedBadge = isUsed
+          ? '<span class="used-badge active">已使用</span>'
+          : '<span class="used-badge">未使用</span>';
         return '<div class="account-card' + usedClass + '">' +
           '<div class="card-header">' +
             '<span class="card-num">' + (i + 1) + '</span>' +
@@ -865,10 +890,11 @@
         '</div>';
       }).join('');
 
+      // ─── 桌面版表格 ───────────────────────────────────────
       document.getElementById('tableBody').innerHTML = accounts.map((item, i) => {
-        const visible = showPasswords[i] || allPwVisible;
+        const visible   = showPasswords[i] || allPwVisible;
         const pwDisplay = visible ? escHtml(item.password) : '••••••••••';
-        const eyeIcon = visible ? '🙈' : '👁';
+        const eyeIcon   = visible ? '🙈' : '👁';
         return '<tr>' +
           '<td class="num">' + (i + 1) + '</td>' +
           '<td><div class="cell-inner"><span class="cell-value">' + escHtml(item.account) + '</span><button class="btn-copy-small" onclick="copyText(\'' + escAttr(item.account) + '\', this)">复制</button></div></td>' +
@@ -890,11 +916,17 @@
       renderAll();
     }
 
-    // ─── 复制 ───────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════
+    //  复制
+    // ═══════════════════════════════════════════════════════
     function copyText(text, btn, accountIdx, isLink) {
       if (typeof accountIdx === 'number' && accountIdx >= 0) {
         usedAccounts[accountIdx] = true;
         saveToLocal();
+        // 如果是在云端分享模式下，同步到云端
+        if (isCloudShare || (isSharedView && currentBinId)) {
+          updateCloudUsed();
+        }
       }
       navigator.clipboard.writeText(text).then(() => {
         showToast(isLink ? '分享链接已复制！' : '已复制: ' + (text.length > 20 ? text.substring(0, 20) + '...' : text));
@@ -906,10 +938,14 @@
         }
         setTimeout(() => renderAll(), 50);
       }).catch(() => {
+        // 降级方案
         const ta = document.createElement('textarea');
-        ta.value = text; ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
-        document.body.appendChild(ta); ta.select();
-        document.execCommand('copy'); document.body.removeChild(ta);
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
         showToast(isLink ? '分享链接已复制！' : '已复制！');
         setTimeout(() => renderAll(), 50);
       });
@@ -920,6 +956,9 @@
       const fullText = [item.account, item.password, item.email].filter(Boolean).join('----');
       usedAccounts[idx] = true;
       saveToLocal();
+      if (isCloudShare || (isSharedView && currentBinId)) {
+        updateCloudUsed();
+      }
       copyText(fullText, null, idx, false);
       if (btn) {
         const orig = btn.textContent;
@@ -935,47 +974,51 @@
       }
       if (!confirm('确定要重置所有已使用标记吗？')) return;
       usedAccounts = {};
-      if (isCloudShare && currentShareId) {
+      if (currentBinId) {
         updateCloudUsed();
-        localStorage.removeItem(getShareKey());
-      } else if (isSharedView) {
-        localStorage.removeItem(getShareKey());
       }
       saveToLocal();
       renderAll();
       showToast('已重置所有标记');
     }
 
-    // ─── 清空 ───────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════
+    //  清空
+    // ═══════════════════════════════════════════════════════
     function clearAll() {
       if (accounts.length === 0 && !document.getElementById('rawInput').value) {
         showToast('已经是空的了'); return;
       }
       if (!confirm('确定要清空所有数据吗？')) return;
-      accounts = []; showPasswords = {}; usedAccounts = {};
+      accounts      = [];
+      showPasswords = {};
+      usedAccounts  = {};
+      currentBinId  = null;
+      isCloudShare  = false;
+      stopPolling();
       document.getElementById('rawInput').value = '';
       document.getElementById('btnShare').classList.remove('active');
       document.getElementById('btnQR').classList.remove('active');
+      document.getElementById('btnMyShare').classList.remove('active');
       document.getElementById('shareBanner').classList.remove('active');
       document.getElementById('shareSuccess').classList.remove('active');
       document.getElementById('qrCodeWrap').classList.remove('active');
-      if (pollTimer) clearInterval(pollTimer);
       localStorage.removeItem('account_tool_data');
       localStorage.removeItem('account_tool_raw');
+      localStorage.removeItem('account_tool_shareId');
       renderAll();
       showToast('已清空');
     }
 
+    // ═══════════════════════════════════════════════════════
+    //  本地保存 / 读取
+    // ═══════════════════════════════════════════════════════
     function saveToLocal() {
-      if (!isSharedView) {
-        localStorage.setItem('account_tool_data', JSON.stringify({ accounts: accounts, usedAccounts: usedAccounts }));
-        localStorage.setItem('account_tool_raw', document.getElementById('rawInput').value);
-      } else if (isCloudShare && currentShareId) {
-        updateCloudUsed();
-        localStorage.setItem(getShareKey(), JSON.stringify(usedAccounts));
-      } else {
-        localStorage.setItem(getShareKey(), JSON.stringify(usedAccounts));
-      }
+      localStorage.setItem('account_tool_data', JSON.stringify({
+        accounts: accounts,
+        usedAccounts: usedAccounts
+      }));
+      localStorage.setItem('account_tool_raw', document.getElementById('rawInput').value);
     }
 
     function escHtml(str) {
@@ -990,7 +1033,8 @@
     let toastTimer = null;
     function showToast(msg) {
       const el = document.getElementById('toast');
-      el.textContent = msg; el.classList.add('show');
+      el.textContent = msg;
+      el.classList.add('show');
       if (toastTimer) clearTimeout(toastTimer);
       toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
     }
